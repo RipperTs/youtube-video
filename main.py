@@ -98,20 +98,15 @@ def _analyze_content_only_stream(video_url, log_callback):
     """流式分析纯内容"""
     try:
         # 检查缓存
-        cache_result = cache_service.get_cached_result(video_url)
+        cache_result = cache_service.get_cached_analysis_result(video_url)
         if cache_result['found']:
             yield log_callback("发现缓存结果，直接返回", "info")
             yield f"data: {json.dumps({'type': 'status', 'message': '从缓存获取结果', 'progress': 100})}\n\n"
             
-            result = {
-                'type': 'result',
-                'success': True,
-                'analysis_type': 'content_only',
-                'report': cache_result['markdown_content'],
-                'cache_key': cache_result['cache_key'],
-                'from_cache': True
-            }
-            yield f"data: {json.dumps(result)}\n\n"
+            # 从缓存获取完整的分析结果
+            cached_analysis = cache_result['analysis_result']
+            cached_analysis['from_cache'] = True
+            yield f"data: {json.dumps(cached_analysis)}\n\n"
             return
         
         # 分析视频内容
@@ -133,14 +128,6 @@ def _analyze_content_only_stream(video_url, log_callback):
         yield log_callback("生成内容分析报告...", "info")
         report = report_service.generate_content_only_report(video_analysis)
         
-        # 保存到缓存
-        yield log_callback("保存分析结果到缓存...", "info")
-        metadata = {
-            'analysis_type': 'content_only',
-            'video_analysis': video_analysis
-        }
-        cache_key = cache_service.save_analysis_result(video_url, report, metadata)
-        
         yield f"data: {json.dumps({'type': 'status', 'message': '分析完成!', 'progress': 100})}\n\n"
         
         # 发送最终结果
@@ -150,9 +137,21 @@ def _analyze_content_only_stream(video_url, log_callback):
             'analysis_type': 'content_only',
             'report': report,
             'video_analysis': video_analysis,
-            'cache_key': cache_key,
             'from_cache': False
         }
+        
+        # 保存到缓存
+        yield log_callback("保存分析结果到缓存...", "info")
+        cache_key = cache_service.save_analysis_result(video_url, result)
+        result['cache_key'] = cache_key
+        
+        # 保存下载用的Markdown报告
+        metadata = {
+            'analysis_type': 'content_only',
+            'video_analysis': video_analysis
+        }
+        cache_service.save_download_report(cache_key, report, video_url, metadata)
+        
         yield f"data: {json.dumps(result)}\n\n"
         
     except Exception as e:
@@ -162,20 +161,15 @@ def _analyze_stock_extraction_stream(video_url, date_range, log_callback):
     """流式股票提取分析"""
     try:
         # 检查缓存
-        cache_result = cache_service.get_cached_result(video_url)
+        cache_result = cache_service.get_cached_analysis_result(video_url)
         if cache_result['found']:
             yield log_callback("发现缓存结果，直接返回", "info")
             yield f"data: {json.dumps({'type': 'status', 'message': '从缓存获取结果', 'progress': 100})}\n\n"
             
-            result = {
-                'type': 'result',
-                'success': True,
-                'analysis_type': 'stock_extraction',
-                'report': cache_result['markdown_content'],
-                'cache_key': cache_result['cache_key'],
-                'from_cache': True
-            }
-            yield f"data: {json.dumps(result)}\n\n"
+            # 从缓存获取完整的分析结果
+            cached_analysis = cache_result['analysis_result']
+            cached_analysis['from_cache'] = True
+            yield f"data: {json.dumps(cached_analysis)}\n\n"
             return
         
         # 提取股票信息
@@ -191,6 +185,10 @@ def _analyze_stock_extraction_stream(video_url, date_range, log_callback):
             else:  # 最终结果
                 stock_extraction = result
         
+        if stock_extraction is None:
+            yield log_callback("股票提取失败", "error")
+            return
+            
         extracted_stocks = stock_extraction.get('extracted_stocks', [])
         
         if not extracted_stocks:
@@ -233,16 +231,6 @@ def _analyze_stock_extraction_stream(video_url, date_range, log_callback):
             video_analysis, stock_data_list, extracted_stocks
         )
         
-        # 保存到缓存
-        yield log_callback("保存分析结果到缓存...", "info")
-        metadata = {
-            'analysis_type': 'stock_extraction',
-            'video_analysis': video_analysis,
-            'extracted_stocks': extracted_stocks,
-            'stock_data': stock_data_list
-        }
-        cache_key = cache_service.save_analysis_result(video_url, report, metadata)
-        
         yield f"data: {json.dumps({'type': 'status', 'message': '分析完成!', 'progress': 100})}\n\n"
         
         # 发送最终结果
@@ -254,9 +242,23 @@ def _analyze_stock_extraction_stream(video_url, date_range, log_callback):
             'video_analysis': video_analysis,
             'extracted_stocks': extracted_stocks,
             'stock_data': stock_data_list,
-            'cache_key': cache_key,
             'from_cache': False
         }
+        
+        # 保存到缓存
+        yield log_callback("保存分析结果到缓存...", "info")
+        cache_key = cache_service.save_analysis_result(video_url, result)
+        result['cache_key'] = cache_key
+        
+        # 保存下载用的Markdown报告
+        metadata = {
+            'analysis_type': 'stock_extraction',
+            'video_analysis': video_analysis,
+            'extracted_stocks': extracted_stocks,
+            'stock_data': stock_data_list
+        }
+        cache_service.save_download_report(cache_key, report, video_url, metadata)
+        
         yield f"data: {json.dumps(result)}\n\n"
         
     except Exception as e:
@@ -266,21 +268,16 @@ def _analyze_manual_stock_stream(video_url, stock_symbol, date_range, log_callba
     """流式手动股票分析"""
     try:
         # 检查缓存（结合视频URL和股票代码）
-        cache_urls = [f"{video_url}|{stock_symbol}|{date_range}"]
-        cache_result = cache_service.get_cached_result(cache_urls)
+        cache_urls = f"{video_url}|{stock_symbol}|{date_range}"
+        cache_result = cache_service.get_cached_analysis_result(cache_urls)
         if cache_result['found']:
             yield log_callback("发现缓存结果，直接返回", "info")
             yield f"data: {json.dumps({'type': 'status', 'message': '从缓存获取结果', 'progress': 100})}\n\n"
             
-            result = {
-                'type': 'result',
-                'success': True,
-                'analysis_type': 'manual_stock',
-                'report': cache_result['markdown_content'],
-                'cache_key': cache_result['cache_key'],
-                'from_cache': True
-            }
-            yield f"data: {json.dumps(result)}\n\n"
+            # 从缓存获取完整的分析结果
+            cached_analysis = cache_result['analysis_result']
+            cached_analysis['from_cache'] = True
+            yield f"data: {json.dumps(cached_analysis)}\n\n"
             return
         
         # 分析视频
@@ -307,17 +304,6 @@ def _analyze_manual_stock_stream(video_url, stock_symbol, date_range, log_callba
         yield log_callback("生成投资分析报告...", "info")
         report = report_service.generate_report(video_analysis, stock_data)
         
-        # 保存到缓存
-        yield log_callback("保存分析结果到缓存...", "info")
-        metadata = {
-            'analysis_type': 'manual_stock',
-            'video_analysis': video_analysis,
-            'stock_data': stock_data,
-            'stock_symbol': stock_symbol,
-            'date_range': date_range
-        }
-        cache_key = cache_service.save_analysis_result(cache_urls, report, metadata)
-        
         yield f"data: {json.dumps({'type': 'status', 'message': '分析完成!', 'progress': 100})}\n\n"
         
         # 发送最终结果
@@ -328,9 +314,24 @@ def _analyze_manual_stock_stream(video_url, stock_symbol, date_range, log_callba
             'report': report,
             'video_analysis': video_analysis,
             'stock_data': stock_data,
-            'cache_key': cache_key,
             'from_cache': False
         }
+        
+        # 保存到缓存
+        yield log_callback("保存分析结果到缓存...", "info")
+        cache_key = cache_service.save_analysis_result(cache_urls, result)
+        result['cache_key'] = cache_key
+        
+        # 保存下载用的Markdown报告
+        metadata = {
+            'analysis_type': 'manual_stock',
+            'video_analysis': video_analysis,
+            'stock_data': stock_data,
+            'stock_symbol': stock_symbol,
+            'date_range': date_range
+        }
+        cache_service.save_download_report(cache_key, report, cache_urls, metadata)
+        
         yield f"data: {json.dumps(result)}\n\n"
         
     except Exception as e:
@@ -342,6 +343,12 @@ def batch_analyze():
     if request.method == 'POST':
         try:
             data = request.json
+            if not data:
+                return jsonify({
+                    'success': False,
+                    'error': '请求数据不能为空'
+                }), 400
+            
             channel_id = data.get('channel_id')
             video_count = min(data.get('video_count', 5), 10)  # 限制最多10个视频
             
@@ -359,15 +366,11 @@ def batch_analyze():
                 raise Exception("未获取到有效的视频URL")
             
             # 检查缓存
-            cache_result = cache_service.get_cached_result(video_urls)
+            cache_result = cache_service.get_cached_analysis_result(video_urls)
             if cache_result['found']:
-                return jsonify({
-                    'success': True,
-                    'report': cache_result['markdown_content'],
-                    'video_count': len(videos),
-                    'cache_key': cache_result['cache_key'],
-                    'from_cache': True
-                })
+                cached_result = cache_result['analysis_result']
+                cached_result['from_cache'] = True
+                return jsonify(cached_result)
             
             # 使用Gemini批量分析视频
             batch_analysis_generator = gemini_service.analyze_batch_videos(video_urls)
@@ -384,21 +387,27 @@ def batch_analyze():
             # 生成批量内容分析报告
             report = report_service.generate_batch_content_report(batch_analysis)
             
+            # 构建返回结果
+            result = {
+                'success': True,
+                'report': report,
+                'video_count': len(videos),
+                'from_cache': False
+            }
+            
             # 保存到缓存
+            cache_key = cache_service.save_analysis_result(video_urls, result)
+            result['cache_key'] = cache_key
+            
+            # 保存下载用的Markdown报告
             metadata = {
                 'analysis_type': 'batch_content',
                 'batch_analysis': batch_analysis,
                 'video_count': len(videos)
             }
-            cache_key = cache_service.save_analysis_result(video_urls, report, metadata)
+            cache_service.save_download_report(cache_key, report, video_urls, metadata)
             
-            return jsonify({
-                'success': True,
-                'report': report,
-                'video_count': len(videos),
-                'cache_key': cache_key,
-                'from_cache': False
-            })
+            return jsonify(result)
             
         except Exception as e:
             return jsonify({
@@ -435,6 +444,12 @@ def batch_analyze_selected():
     """批量分析选定的视频"""
     try:
         data = request.json
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': '请求数据不能为空'
+            }), 400
+        
         selected_videos = data.get('selected_videos', [])
         
         if not selected_videos:
@@ -456,16 +471,11 @@ def batch_analyze_selected():
             raise Exception("未获取到有效的视频URL")
         
         # 检查缓存
-        cache_result = cache_service.get_cached_result(video_urls)
+        cache_result = cache_service.get_cached_analysis_result(video_urls)
         if cache_result['found']:
-            return jsonify({
-                'success': True,
-                'report': cache_result['markdown_content'],
-                'video_count': len(selected_videos),
-                'selected_videos': selected_videos,
-                'cache_key': cache_result['cache_key'],
-                'from_cache': True
-            })
+            cached_result = cache_result['analysis_result']
+            cached_result['from_cache'] = True
+            return jsonify(cached_result)
         
         # 使用Gemini批量分析视频
         batch_analysis_generator = gemini_service.analyze_batch_videos(video_urls)
@@ -482,23 +492,29 @@ def batch_analyze_selected():
         # 生成批量内容分析报告
         report = report_service.generate_batch_content_report(batch_analysis)
         
+        # 构建返回结果
+        result = {
+            'success': True,
+            'report': report,
+            'video_count': len(selected_videos),
+            'selected_videos': selected_videos,
+            'from_cache': False
+        }
+        
         # 保存到缓存
+        cache_key = cache_service.save_analysis_result(video_urls, result)
+        result['cache_key'] = cache_key
+        
+        # 保存下载用的Markdown报告
         metadata = {
             'analysis_type': 'batch_selected',
             'batch_analysis': batch_analysis,
             'selected_videos': selected_videos,
             'video_count': len(selected_videos)
         }
-        cache_key = cache_service.save_analysis_result(video_urls, report, metadata)
+        cache_service.save_download_report(cache_key, report, video_urls, metadata)
         
-        return jsonify({
-            'success': True,
-            'report': report,
-            'video_count': len(selected_videos),
-            'selected_videos': selected_videos,
-            'cache_key': cache_key,
-            'from_cache': False
-        })
+        return jsonify(result)
         
     except Exception as e:
         return jsonify({
