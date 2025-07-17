@@ -1025,6 +1025,28 @@ body {
     display: inline-block;
 }
 
+/* 计时器显示样式 */
+#timerDisplay,
+#searchTimerDisplay,
+#batchTimerDisplay {
+    font-weight: bold;
+    color: #4CAF50;
+    background-color: rgba(76, 175, 80, 0.1);
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin: 0 5px;
+    font-size: 0.9em;
+    display: inline-block;
+    min-width: 35px;
+    text-align: center;
+}
+
+.time-estimate {
+    font-size: 0.85em;
+    color: #666;
+    font-style: italic;
+}
+
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }

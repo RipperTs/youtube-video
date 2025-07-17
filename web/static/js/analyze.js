@@ -218,6 +218,9 @@ document.addEventListener('DOMContentLoaded', function() {
         analyzeBtn.querySelector('.btn-text').style.display = 'none';
         analyzeBtn.querySelector('.loading-spinner').style.display = 'inline-block';
         
+        // 启动计时器
+        startTimer();
+        
         // 防止表单重复提交
         form.style.pointerEvents = 'none';
         form.style.opacity = '0.6';
@@ -234,6 +237,9 @@ document.addEventListener('DOMContentLoaded', function() {
         analyzeBtn.disabled = false;
         analyzeBtn.querySelector('.btn-text').style.display = 'inline-block';
         analyzeBtn.querySelector('.loading-spinner').style.display = 'none';
+        
+        // 停止计时器
+        stopTimer();
         
         // 恢复表单状态
         form.style.pointerEvents = 'auto';
@@ -557,6 +563,41 @@ document.addEventListener('DOMContentLoaded', function() {
     function isValidYouTubeUrl(url) {
         const regex = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[\w-]+/;
         return regex.test(url);
+    }
+    
+    // 计时器相关变量和函数
+    let timerInterval = null;
+    let startTime = null;
+    
+    function startTimer() {
+        startTime = Date.now();
+        const timerDisplay = document.getElementById('timerDisplay');
+        
+        if (timerDisplay) {
+            timerInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - startTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                
+                if (minutes > 0) {
+                    timerDisplay.textContent = `${minutes}m ${seconds}s`;
+                } else {
+                    timerDisplay.textContent = `${seconds}s`;
+                }
+            }, 1000);
+        }
+    }
+    
+    function stopTimer() {
+        if (timerInterval) {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+        
+        const timerDisplay = document.getElementById('timerDisplay');
+        if (timerDisplay) {
+            timerDisplay.textContent = '0s';
+        }
     }
 });
 

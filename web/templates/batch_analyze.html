@@ -40,7 +40,10 @@
 
                 <button type="submit" class="btn btn-primary" id="searchChannelBtn">
                     <span class="btn-text">查询频道视频</span>
-                    <span class="loading-spinner" style="display: none;">查询中...</span>
+                    <span class="loading-spinner" style="display: none;">
+                        查询中... 
+                        <span id="searchTimerDisplay">0s</span>
+                    </span>
                 </button>
             </form>
         </div>
@@ -65,7 +68,11 @@
             <div class="batch-analyze-section" style="display: none;">
                 <button id="batchAnalyzeBtn" class="btn btn-primary">
                     <span class="btn-text">开始批量分析</span>
-                    <span class="loading-spinner" style="display: none;">分析中... (预计耗时10-15分钟)</span>
+                    <span class="loading-spinner" style="display: none;">
+                        分析中... 
+                        <span id="batchTimerDisplay">0s</span>
+                        <span class="time-estimate">(预计耗时10-15分钟)</span>
+                    </span>
                 </button>
             </div>
         </div>

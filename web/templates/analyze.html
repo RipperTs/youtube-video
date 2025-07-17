@@ -69,7 +69,11 @@
 
                 <button type="submit" class="btn btn-primary" id="analyzeBtn">
                     <span class="btn-text">开始分析</span>
-                    <span class="loading-spinner" style="display: none;">分析中... (预计耗时3-5分钟)</span>
+                    <span class="loading-spinner" style="display: none;">
+                        分析中... 
+                        <span id="timerDisplay">0s</span>
+                        <span class="time-estimate">(预计耗时3-5分钟)</span>
+                    </span>
                 </button>
             </form>
         </div>

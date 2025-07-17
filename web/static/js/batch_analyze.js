@@ -308,12 +308,16 @@ document.addEventListener('DOMContentLoaded', function() {
         if (isLoading) {
             btnText.style.display = 'none';
             spinner.style.display = 'inline-block';
+            // 启动搜索计时器
+            startSearchTimer();
             // 防止表单重复提交
             channelSearchForm.style.pointerEvents = 'none';
             channelSearchForm.style.opacity = '0.6';
         } else {
             btnText.style.display = 'inline-block';
             spinner.style.display = 'none';
+            // 停止搜索计时器
+            stopSearchTimer();
             // 恢复表单状态
             channelSearchForm.style.pointerEvents = 'auto';
             channelSearchForm.style.opacity = '1';
@@ -329,6 +333,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (isLoading) {
             btnText.style.display = 'none';
             spinner.style.display = 'inline-block';
+            // 启动批量分析计时器
+            startBatchTimer();
             
             // 在批量分析过程中禁用其他按钮
             searchChannelBtn.disabled = true;
@@ -347,6 +353,8 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             btnText.style.display = 'inline-block';
             spinner.style.display = 'none';
+            // 停止批量分析计时器
+            stopBatchTimer();
             
             // 恢复其他按钮状态
             searchChannelBtn.disabled = false;
@@ -573,6 +581,74 @@ document.addEventListener('DOMContentLoaded', function() {
         const analyzeUrl = `/analyze?video_url=${encodeURIComponent(url)}`;
         window.open(analyzeUrl, '_blank');
     };
+    
+    // 计时器相关变量和函数
+    let searchTimerInterval = null;
+    let batchTimerInterval = null;
+    let searchStartTime = null;
+    let batchStartTime = null;
+    
+    function startSearchTimer() {
+        searchStartTime = Date.now();
+        const timerDisplay = document.getElementById('searchTimerDisplay');
+        
+        if (timerDisplay) {
+            searchTimerInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - searchStartTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                
+                if (minutes > 0) {
+                    timerDisplay.textContent = `${minutes}m ${seconds}s`;
+                } else {
+                    timerDisplay.textContent = `${seconds}s`;
+                }
+            }, 1000);
+        }
+    }
+    
+    function stopSearchTimer() {
+        if (searchTimerInterval) {
+            clearInterval(searchTimerInterval);
+            searchTimerInterval = null;
+        }
+        
+        const timerDisplay = document.getElementById('searchTimerDisplay');
+        if (timerDisplay) {
+            timerDisplay.textContent = '0s';
+        }
+    }
+    
+    function startBatchTimer() {
+        batchStartTime = Date.now();
+        const timerDisplay = document.getElementById('batchTimerDisplay');
+        
+        if (timerDisplay) {
+            batchTimerInterval = setInterval(() => {
+                const elapsed = Math.floor((Date.now() - batchStartTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                
+                if (minutes > 0) {
+                    timerDisplay.textContent = `${minutes}m ${seconds}s`;
+                } else {
+                    timerDisplay.textContent = `${seconds}s`;
+                }
+            }, 1000);
+        }
+    }
+    
+    function stopBatchTimer() {
+        if (batchTimerInterval) {
+            clearInterval(batchTimerInterval);
+            batchTimerInterval = null;
+        }
+        
+        const timerDisplay = document.getElementById('batchTimerDisplay');
+        if (timerDisplay) {
+            timerDisplay.textContent = '0s';
+        }
+    }
 });
 
 // 格式化文本内容（支持Markdown）
