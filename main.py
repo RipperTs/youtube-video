@@ -4,7 +4,6 @@ from services.gemini_service import GeminiService
 from services.stock_service import StockService
 from services.report_service import ReportService
 from services.cache_service import CacheService
-from services.pdf_service import PDFService
 from config.settings import Config
 import os
 import json
@@ -22,7 +21,6 @@ gemini_service = GeminiService()
 stock_service = StockService()
 report_service = ReportService()
 cache_service = CacheService()
-pdf_service = PDFService()
 
 @app.route('/')
 def index():
@@ -508,27 +506,33 @@ def batch_analyze_selected():
             'error': str(e)
         }), 500
 
-@app.route('/api/download-pdf/<cache_key>')
-def download_pdf(cache_key):
-    """下载PDF报告"""
+@app.route('/api/download-markdown/<cache_key>')
+def download_markdown(cache_key):
+    """下载Markdown报告"""
     try:
-        # 生成PDF
-        pdf_path = pdf_service.generate_pdf_from_cache(cache_key, cache_service)
+        # 获取Markdown文件路径
+        markdown_file = cache_service.get_markdown_file_path(cache_key)
+        
+        if not os.path.exists(markdown_file):
+            return jsonify({
+                'success': False,
+                'error': "缓存文件不存在"
+            }), 404
         
         # 生成下载文件名
-        filename = f"youtube_analysis_{cache_key[:8]}.pdf"
+        filename = f"youtube_analysis_{cache_key[:8]}.md"
         
         return send_file(
-            pdf_path,
+            markdown_file,
             as_attachment=True,
             download_name=filename,
-            mimetype='application/pdf'
+            mimetype='text/markdown'
         )
         
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': f"PDF生成失败: {str(e)}"
+            'error': f"Markdown下载失败: {str(e)}"
         }), 500
 
 @app.route('/api/stock-data')

@@ -210,7 +210,7 @@ document.addEventListener('DOMContentLoaded', function() {
         displayResults(data);
         
         // 显示PDF下载按钮
-        showPDFDownloadButton();
+        showMarkdownDownloadButton();
     }
     
     function startAnalysis() {
@@ -596,62 +596,62 @@ function showTab(tabName) {
 }
 
 // PDF下载相关函数
-function showPDFDownloadButton() {
+function showMarkdownDownloadButton() {
     // 检查是否有cache_key
     if (!window.currentCacheKey) {
-        console.warn('没有找到cache_key，无法下载PDF');
+        console.warn('没有找到cache_key，无法下载Markdown');
         return;
     }
     
-    // 查找或创建PDF下载按钮
-    let pdfButton = document.getElementById('pdfDownloadBtn');
-    if (!pdfButton) {
-        pdfButton = document.createElement('button');
-        pdfButton.id = 'pdfDownloadBtn';
-        pdfButton.className = 'btn btn-secondary';
-        pdfButton.innerHTML = `
+    // 查找或创建Markdown下载按钮
+    let markdownButton = document.getElementById('markdownDownloadBtn');
+    if (!markdownButton) {
+        markdownButton = document.createElement('button');
+        markdownButton.id = 'markdownDownloadBtn';
+        markdownButton.className = 'btn btn-secondary';
+        markdownButton.innerHTML = `
             <i class="fas fa-download"></i>
-            <span class="btn-text">下载PDF报告</span>
+            <span class="btn-text">下载Markdown报告</span>
             <span class="loading-spinner" style="display: none;">
                 <i class="fas fa-spinner fa-spin"></i>
             </span>
         `;
         
         // 添加点击事件
-        pdfButton.addEventListener('click', downloadPDFReport);
+        markdownButton.addEventListener('click', downloadMarkdownReport);
         
         // 插入到结果区域的开头
         const resultsSection = document.getElementById('analysisResults');
         if (resultsSection) {
-            resultsSection.insertBefore(pdfButton, resultsSection.firstChild);
+            resultsSection.insertBefore(markdownButton, resultsSection.firstChild);
         }
     }
     
     // 显示按钮
-    pdfButton.style.display = 'inline-block';
-    pdfButton.style.marginBottom = '20px';
+    markdownButton.style.display = 'inline-block';
+    markdownButton.style.marginBottom = '20px';
 }
 
-function downloadPDFReport() {
+function downloadMarkdownReport() {
     if (!window.currentCacheKey) {
         alert('没有找到分析结果，请先进行分析');
         return;
     }
     
-    const pdfButton = document.getElementById('pdfDownloadBtn');
+    const markdownButton = document.getElementById('markdownDownloadBtn');
     
     // 显示加载状态
-    pdfButton.disabled = true;
-    pdfButton.querySelector('.btn-text').style.display = 'none';
-    pdfButton.querySelector('.loading-spinner').style.display = 'inline-block';
+    markdownButton.disabled = true;
+    markdownButton.querySelector('.btn-text').style.display = 'none';
+    markdownButton.querySelector('.loading-spinner').style.display = 'inline-block';
     
     // 创建下载链接
-    const downloadUrl = `/api/download-pdf/${window.currentCacheKey}`;
+    const downloadUrl = `/api/download-markdown/${window.currentCacheKey}`;
     
     // 创建隐藏的a标签进行下载
     const link = document.createElement('a');
     link.href = downloadUrl;
-    link.download = `youtube_analysis_${window.currentCacheKey.substring(0, 8)}.pdf`;
+    link.download = `youtube_analysis_${window.currentCacheKey.substring(0, 8)}.md`;
     
     // 添加到DOM并触发点击
     document.body.appendChild(link);
@@ -662,13 +662,13 @@ function downloadPDFReport() {
     
     // 恢复按钮状态
     setTimeout(() => {
-        pdfButton.disabled = false;
-        pdfButton.querySelector('.btn-text').style.display = 'inline-block';
-        pdfButton.querySelector('.loading-spinner').style.display = 'none';
+        markdownButton.disabled = false;
+        markdownButton.querySelector('.btn-text').style.display = 'inline-block';
+        markdownButton.querySelector('.loading-spinner').style.display = 'none';
         
         // 显示成功提示
         if (typeof showNotification === 'function') {
-            showNotification('PDF下载已开始', 'success');
+            showNotification('Markdown下载已开始', 'success');
         }
     }, 1000);
 }
