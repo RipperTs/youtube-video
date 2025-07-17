@@ -308,9 +308,15 @@ document.addEventListener('DOMContentLoaded', function() {
         if (isLoading) {
             btnText.style.display = 'none';
             spinner.style.display = 'inline-block';
+            // 防止表单重复提交
+            channelSearchForm.style.pointerEvents = 'none';
+            channelSearchForm.style.opacity = '0.6';
         } else {
             btnText.style.display = 'inline-block';
             spinner.style.display = 'none';
+            // 恢复表单状态
+            channelSearchForm.style.pointerEvents = 'auto';
+            channelSearchForm.style.opacity = '1';
         }
     }
     
@@ -323,9 +329,38 @@ document.addEventListener('DOMContentLoaded', function() {
         if (isLoading) {
             btnText.style.display = 'none';
             spinner.style.display = 'inline-block';
+            
+            // 在批量分析过程中禁用其他按钮
+            searchChannelBtn.disabled = true;
+            selectAllBtn.disabled = true;
+            clearSelectionBtn.disabled = true;
+            loadMoreBtn.disabled = true;
+            
+            // 禁用视频列表中的按钮
+            const videoButtons = videoList.querySelectorAll('button');
+            videoButtons.forEach(btn => btn.disabled = true);
+            
+            // 禁用视频选择
+            const checkboxes = videoList.querySelectorAll('.video-checkbox');
+            checkboxes.forEach(checkbox => checkbox.disabled = true);
+            
         } else {
             btnText.style.display = 'inline-block';
             spinner.style.display = 'none';
+            
+            // 恢复其他按钮状态
+            searchChannelBtn.disabled = false;
+            selectAllBtn.disabled = false;
+            clearSelectionBtn.disabled = false;
+            loadMoreBtn.disabled = false;
+            
+            // 恢复视频列表中的按钮
+            const videoButtons = videoList.querySelectorAll('button');
+            videoButtons.forEach(btn => btn.disabled = false);
+            
+            // 恢复视频选择
+            const checkboxes = videoList.querySelectorAll('.video-checkbox');
+            checkboxes.forEach(checkbox => checkbox.disabled = false);
         }
     }
     

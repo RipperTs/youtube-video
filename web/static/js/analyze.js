@@ -217,6 +217,15 @@ document.addEventListener('DOMContentLoaded', function() {
         analyzeBtn.disabled = true;
         analyzeBtn.querySelector('.btn-text').style.display = 'none';
         analyzeBtn.querySelector('.loading-spinner').style.display = 'inline-block';
+        
+        // 防止表单重复提交
+        form.style.pointerEvents = 'none';
+        form.style.opacity = '0.6';
+        
+        // 禁用表单中的其他控件
+        const formControls = form.querySelectorAll('input, select, textarea');
+        formControls.forEach(control => control.disabled = true);
+        
         hideError();
         hideResults();
     }
@@ -225,6 +234,14 @@ document.addEventListener('DOMContentLoaded', function() {
         analyzeBtn.disabled = false;
         analyzeBtn.querySelector('.btn-text').style.display = 'inline-block';
         analyzeBtn.querySelector('.loading-spinner').style.display = 'none';
+        
+        // 恢复表单状态
+        form.style.pointerEvents = 'auto';
+        form.style.opacity = '1';
+        
+        // 恢复表单中的其他控件
+        const formControls = form.querySelectorAll('input, select, textarea');
+        formControls.forEach(control => control.disabled = false);
     }
     
     function displayResults(result) {
