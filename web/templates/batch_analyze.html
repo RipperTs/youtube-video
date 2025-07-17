@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>批量分析 - YouTube投资分析平台</title>
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="nav-title">YouTube投资分析</h1>
+            <ul class="nav-menu">
+                <li><a href="{{ url_for('index') }}" class="nav-link">首页</a></li>
+                <li><a href="{{ url_for('analyze') }}" class="nav-link">单视频分析</a></li>
+                <li><a href="{{ url_for('batch_analyze') }}" class="nav-link active">批量分析</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="page-header">
+            <h1>批量视频内容分析</h1>
+            <p>分析YouTube频道的多个视频内容，生成综合投资观点报告</p>
+        </div>
+
+        <div class="analysis-form">
+            <form id="channelSearchForm">
+                <div class="form-group">
+                    <label for="channelId">YouTube频道ID/名称</label>
+                    <input 
+                        type="text" 
+                        id="channelId" 
+                        name="channel_id" 
+                        placeholder="@MarketBeatMedia 或频道ID"
+                        required
+                    >
+                    <small>频道名称需要以@开头，如：@MarketBeatMedia</small>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="searchChannelBtn">
+                    <span class="btn-text">查询频道视频</span>
+                    <span class="loading-spinner" style="display: none;">查询中...</span>
+                </button>
+            </form>
+        </div>
+
+        <div id="videoListSection" class="video-list-section" style="display: none;">
+            <div class="video-list-header">
+                <h3>选择要分析的视频</h3>
+                <div class="video-list-controls">
+                    <div class="selection-info">
+                        <span id="selectedCount">0</span> / 10 已选择
+                    </div>
+                    <div class="list-controls">
+                        <button id="selectAllBtn" class="btn btn-secondary btn-sm">全选</button>
+                        <button id="clearSelectionBtn" class="btn btn-secondary btn-sm">清除选择</button>
+                        <button id="loadMoreBtn" class="btn btn-secondary btn-sm">加载更多</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="videoList" class="video-list"></div>
+
+            <div class="batch-analyze-section" style="display: none;">
+                <button id="batchAnalyzeBtn" class="btn btn-primary">
+                    <span class="btn-text">开始批量分析</span>
+                    <span class="loading-spinner" style="display: none;">分析中... (预计耗时10-15分钟)</span>
+                </button>
+            </div>
+        </div>
+
+        <div id="progressSection" class="progress-section" style="display: none;">
+            <h3>分析进度</h3>
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill"></div>
+            </div>
+            <div id="progressText" class="progress-text">正在获取视频列表...</div>
+            <div id="videoList" class="video-list"></div>
+        </div>
+
+        <div id="batchResults" class="results-section" style="display: none;">
+            <h2>批量内容分析结果</h2>
+            
+            <div class="result-tabs">
+                <button class="tab-btn active" onclick="showTab('overview')">分析概览</button>
+                <button class="tab-btn" onclick="showTab('individual')">各视频分析</button>
+                <button class="tab-btn" onclick="showTab('insights')">综合洞察</button>
+                <button class="tab-btn" onclick="showTab('recommendations')">投资建议</button>
+            </div>
+
+            <div id="overviewTab" class="tab-content active">
+                <div class="overview-content">
+                    <div id="overviewSummary" class="report-section"></div>
+                    <div id="overviewThemes" class="report-section"></div>
+                    <div id="overviewSentiment" class="report-section"></div>
+                </div>
+            </div>
+
+            <div id="individualTab" class="tab-content">
+                <div id="individualAnalyses" class="individual-analyses"></div>
+            </div>
+
+            <div id="insightsTab" class="tab-content">
+                <div class="consolidated-insights">
+                    <div id="commonThemes" class="insight-section"></div>
+                    <div id="consensusViews" class="insight-section"></div>
+                    <div id="investmentOpportunities" class="insight-section"></div>
+                </div>
+            </div>
+
+            <div id="recommendationsTab" class="tab-content">
+                <div class="recommendations-content">
+                    <div id="overallRecommendation" class="recommendation-section"></div>
+                    <div id="actionItems" class="recommendation-section"></div>
+                    <div id="riskAssessment" class="recommendation-section"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="errorMessage" class="error-message" style="display: none;"></div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/batch_analyze.js') }}"></script>
+</body>
+</html>

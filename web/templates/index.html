@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube视频投资分析平台</title>
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="nav-title">YouTube投资分析</h1>
+            <ul class="nav-menu">
+                <li><a href="{{ url_for('index') }}" class="nav-link">首页</a></li>
+                <li><a href="{{ url_for('analyze') }}" class="nav-link">单视频分析</a></li>
+                <li><a href="{{ url_for('batch_analyze') }}" class="nav-link">批量分析</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="hero-section">
+            <h1>YouTube视频投资分析平台</h1>
+            <p class="hero-subtitle">通过AI分析YouTube财经视频，结合股票数据，生成专业投资报告</p>
+            
+            <div class="feature-cards">
+                <div class="feature-card">
+                    <h3>🎬 视频分析</h3>
+                    <p>使用Gemini AI模型深度分析YouTube财经视频内容</p>
+                </div>
+                <div class="feature-card">
+                    <h3>📈 股票数据</h3>
+                    <p>实时获取美股历史数据和技术指标</p>
+                </div>
+                <div class="feature-card">
+                    <h3>📊 投资报告</h3>
+                    <p>生成高盛摩根风格的专业投资建议报告</p>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <a href="{{ url_for('analyze') }}" class="btn btn-primary">开始单视频分析</a>
+                <a href="{{ url_for('batch_analyze') }}" class="btn btn-secondary">批量分析频道</a>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h2>平台功能</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <h4>智能视频分析</h4>
+                    <ul>
+                        <li>提取视频关键观点和投资建议</li>
+                        <li>识别提到的公司和股票</li>
+                        <li>分析市场事件和风险因素</li>
+                    </ul>
+                </div>
+                <div class="info-item">
+                    <h4>数据驱动洞察</h4>
+                    <ul>
+                        <li>结合实时股票价格和技术指标</li>
+                        <li>计算波动率和趋势分析</li>
+                        <li>提供量化风险评估</li>
+                    </ul>
+                </div>
+                <div class="info-item">
+                    <h4>专业报告生成</h4>
+                    <ul>
+                        <li>机构级投资建议格式</li>
+                        <li>目标价格和止损建议</li>
+                        <li>风险评估和缓解策略</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <p>&copy; 2024 YouTube投资分析平台. 仅供参考，投资有风险。</p>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

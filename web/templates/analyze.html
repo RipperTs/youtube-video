@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>单视频分析 - YouTube投资分析平台</title>
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="nav-title">YouTube投资分析</h1>
+            <ul class="nav-menu">
+                <li><a href="{{ url_for('index') }}" class="nav-link">首页</a></li>
+                <li><a href="{{ url_for('analyze') }}" class="nav-link active">单视频分析</a></li>
+                <li><a href="{{ url_for('batch_analyze') }}" class="nav-link">批量分析</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="main-content">
+        <div class="page-header">
+            <h1>单视频分析</h1>
+            <p>输入YouTube视频链接，获取专业投资分析报告</p>
+        </div>
+
+        <div class="analysis-form">
+            <form id="videoAnalysisForm">
+                <div class="form-group">
+                    <label for="videoUrl">YouTube视频链接</label>
+                    <input 
+                        type="url" 
+                        id="videoUrl" 
+                        name="video_url" 
+                        placeholder="https://www.youtube.com/watch?v=..."
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="analysisType">分析类型</label>
+                    <select id="analysisType" name="analysis_type">
+                        <option value="content_only">仅分析投资内容和逻辑</option>
+                        <option value="stock_extraction">提取股票并分析数据</option>
+                        <option value="manual_stock">手动指定股票分析</option>
+                    </select>
+                </div>
+
+                <div class="form-group" id="stockSymbolGroup">
+                    <label for="stockSymbol">股票代码</label>
+                    <input 
+                        type="text" 
+                        id="stockSymbol" 
+                        name="stock_symbol" 
+                        placeholder="AAPL, GOOGL, MSFT等"
+                        value="AAPL"
+                    >
+                </div>
+
+                <div class="form-group" id="dateRangeGroup">
+                    <label for="dateRange">数据时间范围</label>
+                    <select id="dateRange" name="date_range">
+                        <option value="7">最近7天</option>
+                        <option value="30" selected>最近30天</option>
+                        <option value="90">最近90天</option>
+                        <option value="180">最近180天</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="analyzeBtn">
+                    <span class="btn-text">开始分析</span>
+                    <span class="loading-spinner" style="display: none;">分析中... (预计耗时3-5分钟)</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- 分析日志显示区域 -->
+        <div id="analysisLogs" class="analysis-logs" style="display: none;">
+            <h3>分析进度</h3>
+            <div class="log-container">
+                <div id="logContent" class="log-content"></div>
+            </div>
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill"></div>
+            </div>
+        </div>
+
+        <div id="analysisResults" class="results-section" style="display: none;">
+            <h2>分析结果</h2>
+            
+            <div class="result-tabs">
+                <button class="tab-btn active" onclick="showTab('report')">投资报告</button>
+                <button class="tab-btn" onclick="showTab('video')">视频分析</button>
+                <button class="tab-btn" onclick="showTab('stock')">股票数据</button>
+            </div>
+
+            <div id="reportTab" class="tab-content active">
+                <div class="report-content">
+                    <div id="reportTitle" class="report-title"></div>
+                    <div id="executiveSummary" class="report-section"></div>
+                    <div id="recommendation" class="report-section"></div>
+                    <div id="riskAssessment" class="report-section"></div>
+                    <div id="priceTargets" class="report-section"></div>
+                </div>
+            </div>
+
+            <div id="videoTab" class="tab-content">
+                <div class="video-insights">
+                    <div id="videoSummary" class="insight-section"></div>
+                    <div id="mentionedCompanies" class="insight-section"></div>
+                    <div id="marketEvents" class="insight-section"></div>
+                    <div id="expertOpinions" class="insight-section"></div>
+                </div>
+            </div>
+
+            <div id="stockTab" class="tab-content">
+                <div class="stock-data">
+                    <div id="stockOverview" class="stock-section"></div>
+                    <div id="stockChart" class="stock-section"></div>
+                    <div id="technicalIndicators" class="stock-section"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="errorMessage" class="error-message" style="display: none;"></div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/analyze.js') }}"></script>
+</body>
+</html>
