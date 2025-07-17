@@ -482,6 +482,8 @@ class GeminiService:
                 'parts': parts
             }]
         }
+
+        print(payload)
         
         try:
             if log_callback:

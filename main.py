@@ -466,6 +466,8 @@ def batch_analyze_selected():
         
         # 提取视频URL列表
         video_urls = [video.get('url') for video in selected_videos if video.get('url')]
+
+        print(video_urls)
         
         if not video_urls:
             raise Exception("未获取到有效的视频URL")
