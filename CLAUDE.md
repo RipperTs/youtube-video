@@ -30,11 +30,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## 环境设置
 
 ```bash
+# 使用激活虚拟环境
+conda activate /Users/wyf/miniconda3/envs/youtube-view
+
 # 安装依赖
 pip install -r requirements.txt
 
-# 或者使用虚拟环境
-source .venv/bin/activate  # 项目依赖包位于.venv目录
 pip install -r requirements.txt
 ```
 
