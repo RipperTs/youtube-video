@@ -28,7 +28,7 @@ class GeminiService:
             current_date = datetime.now().strftime('%Y年%m月%d日')
             
             prompt = f"""
-### **【MarketBeat投资分析报告生成】**
+### **【YouTube视频投资分析报告生成】**
 
 **# 重要说明**
 当前分析时间：{current_date}
@@ -49,7 +49,7 @@ class GeminiService:
 
 **报告开头必须包含以下格式：**
 ```
-# MarketBeat投资分析报告：[视频主题]
+# YouTube视频投资分析报告：[视频主题]
 
 **报告日期：** {current_date}
 **分析师：** [您的姓名]，资深证券分析师
@@ -517,7 +517,7 @@ class GeminiService:
 
 **报告开头必须包含以下格式：**
 ```
-# MarketBeat批量投资分析报告
+# YouTube批量投资分析报告
 
 **报告日期：** {current_date}
 **分析师：** [您的姓名]，资深证券分析师
