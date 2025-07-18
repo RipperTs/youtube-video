@@ -58,6 +58,45 @@ class ChartService:
                 'error': str(e)
             }
     
+    def generate_stock_chart_by_date_range(self, symbol, start_date, end_date):
+        """
+        按日期范围生成股票走势图
+        
+        Args:
+            symbol: 股票代码
+            start_date: 开始日期 (YYYY-MM-DD格式)
+            end_date: 结束日期 (YYYY-MM-DD格式)
+            
+        Returns:
+            dict: 包含图表信息的字典
+        """
+        try:
+            # 获取股票数据
+            stock_data = self.stock_service.get_stock_data_by_date_range(symbol, start_date, end_date)
+            
+            # 创建图表
+            chart_filename = self._create_price_chart(stock_data)
+            
+            return {
+                'success': True,
+                'symbol': symbol,
+                'name': self._get_company_name(symbol),
+                'period': f'{start_date} 至 {end_date}',
+                'current_price': stock_data['latest_price'],
+                'price_change': stock_data['pct_change'],
+                'chart_url': f'/static/charts/{chart_filename}',
+                'chart_filename': chart_filename,
+                'start_date': start_date,
+                'end_date': end_date
+            }
+            
+        except Exception as e:
+            return {
+                'success': False,
+                'symbol': symbol,
+                'error': str(e)
+            }
+    
     def _create_price_chart(self, stock_data):
         """创建价格走势图"""
         # 准备数据

@@ -45,7 +45,8 @@ def analyze_stream():
     data = request.get_json()
     video_url = data.get('video_url')
     analysis_type = data.get('analysis_type', 'content_only')
-    date_range = data.get('date_range', 30)
+    start_date = data.get('start_date')
+    end_date = data.get('end_date')
     stock_symbol = data.get('stock_symbol', 'AAPL') if analysis_type == 'manual_stock' else None
     
     def generate_analysis():
@@ -78,13 +79,13 @@ def analyze_stream():
                 yield f"data: {json.dumps({'type': 'status', 'message': '提取股票并分析数据', 'progress': 10})}\n\n"
                 
                 # 流式股票提取分析
-                for log_output in _analyze_stock_extraction_stream(video_url, date_range, log_callback):
+                for log_output in _analyze_stock_extraction_stream(video_url, start_date, end_date, log_callback):
                     yield log_output
                     
             else:  # manual_stock
                 yield f"data: {json.dumps({'type': 'status', 'message': '手动指定股票分析', 'progress': 10})}\n\n"
                 
-                for log_output in _analyze_manual_stock_stream(video_url, stock_symbol, date_range, log_callback):
+                for log_output in _analyze_manual_stock_stream(video_url, stock_symbol, start_date, end_date, log_callback):
                     yield log_output
             
         except Exception as e:
@@ -166,7 +167,7 @@ def _analyze_content_only_stream(video_url, log_callback):
     except Exception as e:
         yield log_callback(f"分析失败: {str(e)}", "error")
 
-def _analyze_stock_extraction_stream(video_url, date_range, log_callback):
+def _analyze_stock_extraction_stream(video_url, start_date, end_date, log_callback):
     """流式股票提取分析"""
     try:
         # 检查缓存
@@ -231,7 +232,7 @@ def _analyze_stock_extraction_stream(video_url, date_range, log_callback):
         for i, stock in enumerate(extracted_stocks):
             try:
                 yield log_callback(f"获取 {stock['symbol']} 股票数据...", "info")
-                stock_data = stock_service.get_stock_data(stock['symbol'], date_range)
+                stock_data = stock_service.get_stock_data_by_date_range(stock['symbol'], start_date, end_date)
                 stock_data['name'] = stock.get('name', '')
                 stock_data_list.append(stock_data)
                 progress = 60 + (i + 1) * 10 / len(extracted_stocks)
@@ -279,11 +280,11 @@ def _analyze_stock_extraction_stream(video_url, date_range, log_callback):
     except Exception as e:
         yield log_callback(f"分析失败: {str(e)}", "error")
 
-def _analyze_manual_stock_stream(video_url, stock_symbol, date_range, log_callback):
+def _analyze_manual_stock_stream(video_url, stock_symbol, start_date, end_date, log_callback):
     """流式手动股票分析"""
     try:
         # 检查缓存（结合视频URL和股票代码）
-        cache_urls = f"{video_url}|{stock_symbol}|{date_range}"
+        cache_urls = f"{video_url}|{stock_symbol}|{start_date}|{end_date}"
         cache_result = cache_service.get_cached_analysis_result(cache_urls)
         if cache_result['found']:
             yield log_callback("发现缓存结果，直接返回", "info")
@@ -317,7 +318,7 @@ def _analyze_manual_stock_stream(video_url, stock_symbol, date_range, log_callba
         
         # 获取股票数据
         yield log_callback(f"获取 {stock_symbol} 股票数据...", "info")
-        stock_data = stock_service.get_stock_data(stock_symbol, date_range)
+        stock_data = stock_service.get_stock_data_by_date_range(stock_symbol, start_date, end_date)
         
         yield f"data: {json.dumps({'type': 'status', 'message': '生成投资分析报告...', 'progress': 80})}\n\n"
         
@@ -349,7 +350,8 @@ def _analyze_manual_stock_stream(video_url, stock_symbol, date_range, log_callba
             'video_analysis': video_analysis,
             'stock_data': stock_data,
             'stock_symbol': stock_symbol,
-            'date_range': date_range
+            'start_date': start_date,
+            'end_date': end_date
         }
         cache_service.save_download_report(cache_key, report, cache_urls, metadata)
         
@@ -638,12 +640,44 @@ def extract_stocks_chart():
                 'error': '未能从报告中提取到有效的股票信息'
             }), 400
         
+        # 从缓存数据中获取日期范围，如果没有则使用默认值
+        start_date = None
+        end_date = None
+        
+        # 尝试从股票数据中获取日期范围
+        stock_data = cached_data.get('stock_data')
+        if stock_data:
+            if isinstance(stock_data, list) and len(stock_data) > 0:
+                # 多股票数据
+                first_stock = stock_data[0]
+                start_date = first_stock.get('start_date')
+                end_date = first_stock.get('end_date')
+            elif isinstance(stock_data, dict):
+                # 单股票数据
+                start_date = stock_data.get('start_date')
+                end_date = stock_data.get('end_date')
+        
+        # 如果没有找到日期范围，使用默认的30天前到今天
+        if not start_date or not end_date:
+            from datetime import datetime, timedelta
+            end_date = datetime.now().strftime('%Y-%m-%d')
+            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+            print(f"🔧 使用默认日期范围: {start_date} 到 {end_date}")
+        else:
+            print(f"📅 从缓存获取的日期范围: {start_date} 到 {end_date}")
+        
         # 生成股票图表
         stock_charts = []
         for stock in extracted_stocks:
-            chart_result = chart_service.generate_stock_chart(stock['symbol'], date_range)
+            chart_result = chart_service.generate_stock_chart_by_date_range(stock['symbol'], start_date, end_date)
+            # 包含所有结果，不论成功还是失败
+            stock_charts.append(chart_result)
+            
+            # 打印调试信息
             if chart_result.get('success'):
-                stock_charts.append(chart_result)
+                print(f"✅ 成功生成 {stock['symbol']} 的图表")
+            else:
+                print(f"❌ 生成 {stock['symbol']} 图表失败: {chart_result.get('error', '未知错误')}")
         
         # 生成准确性分析
         accuracy_analysis = generate_accuracy_analysis(extracted_stocks, stock_charts, cached_data)

@@ -625,7 +625,12 @@ class GeminiService:
                     "topK": 32,
                     "topP": 1,
                     "maxOutputTokens": 8192,
-                }
+                },
+                "tools": [
+                    {
+                        "google_search": {}
+                    }
+                ]
             }
             
             response = requests.post(url, headers=headers, json=data, timeout=120)

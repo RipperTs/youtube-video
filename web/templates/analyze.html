@@ -59,13 +59,31 @@
                 </div>
 
                 <div class="form-group" id="dateRangeGroup">
-                    <label for="dateRange">数据时间范围</label>
-                    <select id="dateRange" name="date_range">
-                        <option value="7">最近7天</option>
-                        <option value="30" selected>最近30天</option>
-                        <option value="90">最近90天</option>
-                        <option value="180">最近180天</option>
-                    </select>
+                    <label>美股数据查询时间范围</label>
+                    <div class="api-limit-notice">
+                        <i class="fas fa-info-circle"></i>
+                        <span>美股 API 目前每日严重限频查询，超出后请明日再试</span>
+                    </div>
+                    <div class="date-range-container">
+                        <div class="date-input-group">
+                            <label for="startDate">开始日期</label>
+                            <input 
+                                type="date" 
+                                id="startDate" 
+                                name="start_date"
+                                required
+                            >
+                        </div>
+                        <div class="date-input-group">
+                            <label for="endDate">结束日期</label>
+                            <input 
+                                type="date" 
+                                id="endDate" 
+                                name="end_date"
+                                required
+                            >
+                        </div>
+                    </div>
                 </div>
 
                 <button type="submit" class="btn btn-primary" id="analyzeBtn">

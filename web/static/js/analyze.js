@@ -27,6 +27,46 @@ document.addEventListener('DOMContentLoaded', function() {
         videoUrlInput.value = decodeURIComponent(videoUrlFromParam);
     }
     
+    // 设置日期选择器的默认值
+    const startDateInput = document.getElementById('startDate');
+    const endDateInput = document.getElementById('endDate');
+    
+    // 设置默认时间范围（最近30天）
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - 30);
+    
+    // 格式化日期为 YYYY-MM-DD
+    endDateInput.value = endDate.toISOString().split('T')[0];
+    startDateInput.value = startDate.toISOString().split('T')[0];
+    
+    // 日期验证
+    function validateDateRange() {
+        const start = new Date(startDateInput.value);
+        const end = new Date(endDateInput.value);
+        
+        if (start >= end) {
+            showError('开始日期必须早于结束日期');
+            return false;
+        }
+        
+        // 检查时间范围不超过1年
+        const maxDays = 365;
+        const diffTime = Math.abs(end - start);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays > maxDays) {
+            showError('时间范围不能超过1年');
+            return false;
+        }
+        
+        return true;
+    }
+    
+    // 添加日期变化监听器
+    startDateInput.addEventListener('change', validateDateRange);
+    endDateInput.addEventListener('change', validateDateRange);
+    
     // 分析类型切换处理
     const dateRangeGroup = document.getElementById('dateRangeGroup');
     
@@ -35,7 +75,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (analysisType === 'content_only') {
             stockSymbolGroup.style.display = 'none';
             stockSymbolInput.required = false;
-            dateRangeGroup.style.display = 'none';
+            dateRangeGroup.style.display = 'block';
         } else if (analysisType === 'stock_extraction') {
             stockSymbolGroup.style.display = 'none';
             stockSymbolInput.required = false;
@@ -54,11 +94,17 @@ document.addEventListener('DOMContentLoaded', function() {
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
         
+        // 验证日期范围
+        if (!validateDateRange()) {
+            return;
+        }
+        
         const formData = new FormData(form);
         const data = {
             video_url: formData.get('video_url'),
             analysis_type: formData.get('analysis_type'),
-            date_range: parseInt(formData.get('date_range'))
+            start_date: formData.get('start_date'),
+            end_date: formData.get('end_date')
         };
         
         // 根据分析类型添加股票代码
@@ -69,6 +115,13 @@ document.addEventListener('DOMContentLoaded', function() {
         // 验证YouTube URL
         if (!isValidYouTubeUrl(data.video_url)) {
             showError('请输入有效的YouTube视频链接');
+            return;
+        }
+        
+        // 验证必填字段
+        if ((data.analysis_type === 'stock_extraction' || data.analysis_type === 'manual_stock') && 
+            (!data.start_date || !data.end_date)) {
+            showError('请选择有效的时间范围');
             return;
         }
         
@@ -678,8 +731,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    cache_key: window.currentCacheKey,
-                    date_range: 30  // 默认30天
+                    cache_key: window.currentCacheKey
                 })
             });
             
@@ -833,8 +885,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         <img src="${chart.chart_url}" alt="${chart.symbol}走势图" class="chart-image">
                     ` : `
                         <div class="chart-error">
-                            <i class="fas fa-chart-line"></i>
+                            <i class="fas fa-exclamation-triangle"></i>
                             <p>图表生成失败</p>
+                            ${chart.error ? `<small>${chart.error}</small>` : ''}
                         </div>
                     `}
                 </div>

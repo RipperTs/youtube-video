@@ -234,6 +234,72 @@ body {
     font-size: 0.9rem;
 }
 
+/* 日期范围选择器样式 */
+.date-range-container {
+    display: flex;
+    gap: 20px;
+    align-items: end;
+}
+
+.date-input-group {
+    flex: 1;
+}
+
+.date-input-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #2c3e50;
+    font-size: 0.9rem;
+}
+
+.date-input-group input[type="date"] {
+    width: 100%;
+    padding: 12px 15px;
+    border: 2px solid #e0e6ed;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+    color: #2c3e50;
+}
+
+.date-input-group input[type="date"]:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.date-input-group input[type="date"]::-webkit-calendar-picker-indicator {
+    color: #667eea;
+    cursor: pointer;
+}
+
+@media (max-width: 768px) {
+    .date-range-container {
+        flex-direction: column;
+        gap: 15px;
+    }
+}
+
+/* API限制提示样式 */
+.api-limit-notice {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 15px;
+    color: #856404;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.api-limit-notice i {
+    color: #f39c12;
+    font-size: 1rem;
+}
+
 /* 结果区域 */
 .results-section {
     background: white;
@@ -1794,4 +1860,12 @@ body {
 .chart-error .fas {
     font-size: 20px;
     margin-bottom: 10px;
+}
+
+.chart-error small {
+    display: block;
+    margin-top: 10px;
+    font-size: 0.85rem;
+    color: #c0392b;
+    font-style: italic;
 }
