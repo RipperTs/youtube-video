@@ -1,8 +1,413 @@
 from datetime import datetime
 import json
+import os
+import tempfile
+import markdown
+from weasyprint import HTML, CSS
+from weasyprint.text.fonts import FontConfiguration
 
 class ReportService:
     """投资报告生成服务"""
+    
+    def __init__(self):
+        self.font_config = FontConfiguration()
+    
+    def generate_pdf_report(self, cache_key, cached_data, video_urls):
+        """
+        生成PDF报告
+        
+        Args:
+            cache_key: 缓存键
+            cached_data: 缓存的分析数据
+            video_urls: 视频URL列表
+            
+        Returns:
+            str: PDF文件路径
+        """
+        try:
+            # 创建PDF目录
+            pdf_dir = 'cache/pdf'
+            os.makedirs(pdf_dir, exist_ok=True)
+            
+            # 生成PDF文件路径
+            pdf_file = os.path.join(pdf_dir, f'{cache_key}.pdf')
+            
+            # 生成HTML内容
+            html_content = self._generate_html_content(cached_data, video_urls)
+            
+            # 生成CSS样式
+            css_content = self._get_pdf_styles()
+            
+            # 使用WeasyPrint生成PDF
+            html_doc = HTML(string=html_content)
+            css_doc = CSS(string=css_content, font_config=self.font_config)
+            
+            html_doc.write_pdf(pdf_file, stylesheets=[css_doc], font_config=self.font_config)
+            
+            return pdf_file
+            
+        except Exception as e:
+            print(f"PDF生成失败: {e}")
+            raise e
+    
+    def _generate_html_content(self, cached_data, video_urls):
+        """生成HTML内容"""
+        if isinstance(video_urls, str):
+            video_urls = [video_urls]
+        
+        report = cached_data.get('report', {})
+        video_analysis = cached_data.get('video_analysis', {})
+        analysis_type = cached_data.get('analysis_type', 'content_only')
+        
+        # 开始构建HTML
+        html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>YouTube投资分析报告</title>
+</head>
+<body>
+    <div class="header">
+        <h1>YouTube投资分析报告</h1>
+        <div class="meta-info">
+            <p><strong>生成时间:</strong> {datetime.now().strftime('%Y年%m月%d日 %H:%M:%S')}</p>
+            <p><strong>分析类型:</strong> {self._get_analysis_type_name(analysis_type)}</p>
+            <p><strong>视频数量:</strong> {len(video_urls)}</p>
+        </div>
+    </div>
+    
+    <div class="video-links">
+        <h2>分析视频</h2>
+        """
+        
+        for i, url in enumerate(video_urls, 1):
+            html += f'<p>{i}. <a href="{url}">{url}</a></p>\n'
+        
+        html += '</div>\n'
+        
+        # 添加报告内容
+        html += '<div class="report-content">\n'
+        
+        if report.get('raw_markdown_content'):
+            # 纯内容分析报告
+            html += '<h2>分析报告</h2>\n'
+            html += self._markdown_to_html(report['raw_markdown_content'])
+        elif report.get('executive_summary'):
+            # 有结构的报告
+            html += '<h2>执行摘要</h2>\n'
+            html += self._markdown_to_html(report['executive_summary'])
+            
+            if report.get('investment_recommendation'):
+                html += '<h2>投资建议</h2>\n'
+                rec = report['investment_recommendation']
+                html += f"""
+                <div class="recommendation-box">
+                    <h3>建议: {rec.get('action', 'N/A')}</h3>
+                    <p><strong>信心水平:</strong> {rec.get('confidence_level', 'N/A')}</p>
+                    <p><strong>投资期限:</strong> {rec.get('time_horizon', 'N/A')}</p>
+                    <p><strong>理由:</strong> {rec.get('reasoning', 'N/A')}</p>
+                </div>
+                """
+            
+            if report.get('risk_assessment'):
+                html += '<h2>风险评估</h2>\n'
+                if isinstance(report['risk_assessment'], dict):
+                    risk = report['risk_assessment']
+                    html += f'<p><strong>总体风险级别:</strong> {risk.get("overall_risk_level", "N/A")}</p>\n'
+                else:
+                    html += self._markdown_to_html(str(report['risk_assessment']))
+            
+            if report.get('price_targets'):
+                html += '<h2>价格目标</h2>\n'
+                targets = report['price_targets']
+                html += f"""
+                <div class="price-targets">
+                    <p><strong>当前价格:</strong> ${targets.get('current_price', 'N/A')}</p>
+                    <p><strong>12个月目标:</strong> ${targets.get('target_12m', 'N/A')}</p>
+                    <p><strong>止损位:</strong> ${targets.get('stop_loss', 'N/A')}</p>
+                    <p><strong>支撑位:</strong> ${targets.get('support_level', 'N/A')}</p>
+                </div>
+                """
+        
+        html += '</div>\n'
+        
+        # 添加视频分析部分
+        if video_analysis:
+            html += '<div class="video-analysis">\n'
+            html += '<h2>视频内容分析</h2>\n'
+            html += f'<h3>内容摘要</h3>\n'
+            html += self._markdown_to_html(video_analysis.get('summary', '暂无摘要'))
+            
+            if video_analysis.get('companies'):
+                html += '<h3>提及的公司</h3>\n<ul>\n'
+                for company in video_analysis['companies']:
+                    html += f'<li>{company}</li>\n'
+                html += '</ul>\n'
+            
+            if video_analysis.get('market_events'):
+                html += '<h3>市场事件</h3>\n<ul>\n'
+                for event in video_analysis['market_events']:
+                    html += f'<li>{event}</li>\n'
+                html += '</ul>\n'
+            
+            if video_analysis.get('investment_views'):
+                html += '<h3>投资观点</h3>\n<ul>\n'
+                for view in video_analysis['investment_views']:
+                    html += f'<li>{view}</li>\n'
+                html += '</ul>\n'
+            
+            html += '</div>\n'
+        
+        # 添加股票数据（如果有）
+        stock_data = cached_data.get('stock_data')
+        if stock_data:
+            html += '<div class="stock-data">\n'
+            html += '<h2>股票数据分析</h2>\n'
+            
+            if isinstance(stock_data, list):
+                for stock in stock_data:
+                    html += self._format_stock_data_html(stock)
+            else:
+                html += self._format_stock_data_html(stock_data)
+            
+            html += '</div>\n'
+        
+        # 免责声明
+        html += f"""
+        <div class="disclaimer">
+            <h2>免责声明</h2>
+            <p>{self._get_disclaimer()}</p>
+        </div>
+        
+        </body>
+        </html>
+        """
+        
+        return html
+    
+    def _format_stock_data_html(self, stock):
+        """格式化单个股票数据为HTML"""
+        return f"""
+        <div class="stock-item">
+            <h3>{stock.get('symbol', 'N/A')} - {stock.get('name', '未知公司')}</h3>
+            <p><strong>当前价格:</strong> ${stock.get('latest_price', 'N/A')}</p>
+            <p><strong>涨跌幅:</strong> {stock.get('pct_change', 'N/A')}%</p>
+            <p><strong>价格趋势:</strong> {stock.get('price_trend', 'N/A')}</p>
+            <p><strong>波动率:</strong> {stock.get('volatility', 'N/A')}%</p>
+        </div>
+        """
+    
+    def _markdown_to_html(self, markdown_text):
+        """将Markdown转换为HTML"""
+        if not markdown_text:
+            return '<p>暂无内容</p>'
+        
+        try:
+            html = markdown.markdown(markdown_text, extensions=['extra', 'codehilite'])
+            return html
+        except Exception as e:
+            print(f"Markdown转换失败: {e}")
+            return f'<p>{markdown_text}</p>'
+    
+    def _get_analysis_type_name(self, analysis_type):
+        """获取分析类型中文名称"""
+        type_names = {
+            'content_only': '纯内容分析',
+            'stock_extraction': '股票提取分析', 
+            'manual_stock': '手动股票分析',
+            'batch_content': '批量内容分析',
+            'batch_selected': '批量选择分析'
+        }
+        return type_names.get(analysis_type, '未知类型')
+    
+    def _get_pdf_styles(self):
+        """获取PDF样式"""
+        return """
+        @page {
+            size: A4;
+            margin: 2cm;
+            @top-center {
+                content: "YouTube投资分析报告";
+                font-size: 12px;
+                color: #666;
+            }
+            @bottom-center {
+                content: counter(page) " / " counter(pages);
+                font-size: 10px;
+                color: #666;
+            }
+        }
+        
+        body {
+            font-family: "SimHei", "Microsoft YaHei", "Arial", sans-serif;
+            font-size: 12px;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #007bff;
+        }
+        
+        .header h1 {
+            color: #007bff;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .meta-info {
+            font-size: 11px;
+            color: #666;
+        }
+        
+        .meta-info p {
+            margin: 5px 0;
+        }
+        
+        h2 {
+            color: #007bff;
+            font-size: 18px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+        }
+        
+        h3 {
+            color: #333;
+            font-size: 16px;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        
+        p {
+            margin: 8px 0;
+            text-align: justify;
+        }
+        
+        ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        
+        li {
+            margin: 5px 0;
+        }
+        
+        .video-links {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .video-links a {
+            color: #007bff;
+            text-decoration: none;
+            word-break: break-all;
+        }
+        
+        .recommendation-box {
+            background-color: #e7f3ff;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+            margin: 15px 0;
+        }
+        
+        .recommendation-box h3 {
+            color: #007bff;
+            margin-top: 0;
+        }
+        
+        .price-targets {
+            background-color: #f0f8f0;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #28a745;
+            margin: 15px 0;
+        }
+        
+        .stock-item {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        
+        .disclaimer {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 5px;
+            padding: 15px;
+            margin-top: 30px;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+        
+        .disclaimer h2 {
+            color: #856404;
+            font-size: 14px;
+            margin-top: 0;
+        }
+        
+        strong {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: "Courier New", monospace;
+            font-size: 11px;
+        }
+        
+        pre {
+            background-color: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-size: 11px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        
+        th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        
+        blockquote {
+            border-left: 4px solid #ddd;
+            margin: 15px 0;
+            padding-left: 15px;
+            color: #666;
+            font-style: italic;
+        }
+        
+        .page-break {
+            page-break-before: always;
+        }
+        """
     
     def generate_report(self, video_analysis, stock_data):
         """

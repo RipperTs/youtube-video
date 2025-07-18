@@ -547,33 +547,47 @@ def batch_analyze_selected():
             'error': str(e)
         }), 500
 
-@app.route('/api/download-markdown/<cache_key>')
-def download_markdown(cache_key):
-    """下载Markdown报告"""
+@app.route('/api/download-pdf/<cache_key>')
+def download_pdf(cache_key):
+    """下载PDF报告"""
     try:
-        # 获取Markdown文件路径
-        markdown_file = cache_service.get_markdown_file_path(cache_key)
-        
-        if not os.path.exists(markdown_file):
+        # 从缓存获取分析结果
+        cached_data = cache_service.get_analysis_result_by_key(cache_key)
+        if not cached_data:
             return jsonify({
                 'success': False,
                 'error': "缓存文件不存在"
             }), 404
         
+        # 获取视频URL列表
+        video_urls = cache_service.get_video_urls_by_cache_key(cache_key)
+        if not video_urls:
+            # 如果无法获取URL，使用占位符
+            video_urls = ["视频URL获取失败"]
+        
+        # 生成PDF文件
+        pdf_file = report_service.generate_pdf_report(cache_key, cached_data, video_urls)
+        
+        if not os.path.exists(pdf_file):
+            return jsonify({
+                'success': False,
+                'error': "PDF生成失败"
+            }), 500
+        
         # 生成下载文件名
-        filename = f"youtube_analysis_{cache_key[:8]}.md"
+        filename = f"youtube_analysis_{cache_key[:8]}.pdf"
         
         return send_file(
-            markdown_file,
+            pdf_file,
             as_attachment=True,
             download_name=filename,
-            mimetype='text/markdown'
+            mimetype='application/pdf'
         )
         
     except Exception as e:
         return jsonify({
             'success': False,
-            'error': f"Markdown下载失败: {str(e)}"
+            'error': f"PDF下载失败: {str(e)}"
         }), 500
 
 @app.route('/api/stock-data')

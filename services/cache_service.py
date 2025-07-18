@@ -2,6 +2,7 @@ import os
 import hashlib
 import json
 from datetime import datetime
+import time
 
 class CacheService:
     def __init__(self, cache_dir='cache'):
@@ -35,19 +36,17 @@ class CacheService:
         return os.path.join(self.download_cache_dir, f"{cache_key}.md")
     
     def save_analysis_result(self, video_urls, analysis_result):
-        """保存分析结果到JSON缓存"""
+        """保存分析结果到缓存"""
         cache_key = self._generate_cache_key(video_urls)
         cache_file = self._get_analysis_cache_file_path(cache_key)
         
-        # 准备缓存数据
         cache_data = {
             'cache_key': cache_key,
             'video_urls': video_urls if isinstance(video_urls, list) else [video_urls],
-            'timestamp': datetime.now().isoformat(),
-            'analysis_result': analysis_result
+            'analysis_result': analysis_result,
+            'timestamp': int(time.time())
         }
         
-        # 保存到JSON文件
         with open(cache_file, 'w', encoding='utf-8') as f:
             json.dump(cache_data, f, ensure_ascii=False, indent=2)
         
@@ -95,6 +94,22 @@ class CacheService:
         """获取Markdown文件路径"""
         return self._get_download_cache_file_path(cache_key)
     
+    def get_video_urls_by_cache_key(self, cache_key):
+        """根据cache_key获取视频URL列表"""
+        try:
+            # 尝试从分析缓存中获取
+            cache_file = self._get_analysis_cache_file_path(cache_key)
+            if os.path.exists(cache_file):
+                with open(cache_file, 'r', encoding='utf-8') as f:
+                    cache_data = json.load(f)
+                return cache_data.get('video_urls', [])
+            
+            # 如果没有找到，返回空列表
+            return []
+        except Exception as e:
+            print(f"获取视频URL失败: {e}")
+            return []
+
     def _format_report_as_markdown(self, report, video_urls, metadata=None):
         """将报告格式化为Markdown"""
         if isinstance(video_urls, str):
