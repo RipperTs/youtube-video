@@ -600,9 +600,12 @@ def extract_stocks_chart():
     try:
         data = request.get_json()
         cache_key = data.get('cache_key')
-        date_range = data.get('date_range', 30)
+        # 新增：从请求中获取日期范围
+        request_start_date = data.get('start_date')
+        request_end_date = data.get('end_date')
         
         print(f"收到股票提取请求，cache_key: {cache_key}")
+        print(f"请求的日期范围: {request_start_date} 到 {request_end_date}")
         
         if not cache_key:
             print("错误：缺少cache_key参数")
@@ -640,31 +643,36 @@ def extract_stocks_chart():
                 'error': '未能从报告中提取到有效的股票信息'
             }), 400
         
-        # 从缓存数据中获取日期范围，如果没有则使用默认值
-        start_date = None
-        end_date = None
+        # 确定使用的日期范围：优先使用请求中的日期，然后是缓存中的日期，最后使用默认值
+        start_date = request_start_date
+        end_date = request_end_date
         
-        # 尝试从股票数据中获取日期范围
-        stock_data = cached_data.get('stock_data')
-        if stock_data:
-            if isinstance(stock_data, list) and len(stock_data) > 0:
-                # 多股票数据
-                first_stock = stock_data[0]
-                start_date = first_stock.get('start_date')
-                end_date = first_stock.get('end_date')
-            elif isinstance(stock_data, dict):
-                # 单股票数据
-                start_date = stock_data.get('start_date')
-                end_date = stock_data.get('end_date')
+        # 如果请求中没有日期范围，尝试从缓存的股票数据中获取
+        if not start_date or not end_date:
+            stock_data = cached_data.get('stock_data')
+            if stock_data:
+                if isinstance(stock_data, list) and len(stock_data) > 0:
+                    # 多股票数据
+                    first_stock = stock_data[0]
+                    start_date = first_stock.get('start_date')
+                    end_date = first_stock.get('end_date')
+                elif isinstance(stock_data, dict):
+                    # 单股票数据
+                    start_date = stock_data.get('start_date')
+                    end_date = stock_data.get('end_date')
         
-        # 如果没有找到日期范围，使用默认的30天前到今天
+        # 如果仍然没有找到日期范围，使用默认的30天前到今天
         if not start_date or not end_date:
             from datetime import datetime, timedelta
             end_date = datetime.now().strftime('%Y-%m-%d')
             start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
             print(f"🔧 使用默认日期范围: {start_date} 到 {end_date}")
         else:
-            print(f"📅 从缓存获取的日期范围: {start_date} 到 {end_date}")
+            print(f"📅 使用的日期范围: {start_date} 到 {end_date}")
+            if request_start_date and request_end_date:
+                print("   (来源: 用户请求)")
+            else:
+                print("   (来源: 缓存数据)")
         
         # 生成股票图表
         stock_charts = []
@@ -836,7 +844,7 @@ def generate_accuracy_analysis(extracted_stocks, stock_charts, cached_data):
         
         # 构建分析提示词
         analysis_prompt = f"""
-作为专业的投资分析师，请分析以下YouTube视频投资建议的准确性：
+作为专业的投资分析师，请分析以下YouTube视频投资建议的准确性, 你可以调用搜索工具来在合适的时候获取实时数据：
 
 ## 提取的股票信息：
 {json.dumps(extracted_stocks, ensure_ascii=False, indent=2)}

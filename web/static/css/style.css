@@ -1869,3 +1869,22 @@ body {
     color: #c0392b;
     font-style: italic;
 }
+
+/* 数值状态样式 */
+.metric-value.positive {
+    color: #27ae60 !important;
+    background: none !important;
+    -webkit-text-fill-color: #27ae60 !important;
+}
+
+.metric-value.negative {
+    color: #e74c3c !important;
+    background: none !important;
+    -webkit-text-fill-color: #e74c3c !important;
+}
+
+.metric-value.neutral {
+    color: #95a5a6 !important;
+    background: none !important;
+    -webkit-text-fill-color: #95a5a6 !important;
+}

@@ -559,8 +559,11 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                             <div class="stock-metric">
                                 <span class="metric-label">涨跌幅</span>
-                                <span class="metric-value ${stock.pct_change >= 0 ? 'positive' : 'negative'}">
-                                    ${stock.pct_change >= 0 ? '+' : ''}${stock.pct_change.toFixed(2)}%
+                                <span class="metric-value ${stock.pct_change !== undefined ? (stock.pct_change >= 0 ? 'positive' : 'negative') : 'neutral'}">
+                                    ${stock.pct_change !== undefined ? 
+                                        `${stock.pct_change >= 0 ? '+' : ''}${stock.pct_change.toFixed(2)}%` : 
+                                        '数据获取失败'
+                                    }
                                 </span>
                             </div>
                             <div class="stock-metric">
@@ -594,8 +597,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     </div>
                     <div class="stock-metric">
                         <span class="metric-label">涨跌幅</span>
-                        <span class="metric-value ${stockData.pct_change >= 0 ? 'positive' : 'negative'}">
-                            ${stockData.pct_change >= 0 ? '+' : ''}${stockData.pct_change.toFixed(2)}%
+                        <span class="metric-value ${stockData.pct_change !== undefined ? (stockData.pct_change >= 0 ? 'positive' : 'negative') : 'neutral'}">
+                            ${stockData.pct_change !== undefined ? 
+                                `${stockData.pct_change >= 0 ? '+' : ''}${stockData.pct_change.toFixed(2)}%` : 
+                                '数据获取失败'
+                            }
                         </span>
                     </div>
                     <div class="stock-metric">
@@ -716,6 +722,14 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        // 获取当前选择的日期范围
+        const startDateInput = document.getElementById('startDate');
+        const endDateInput = document.getElementById('endDate');
+        const startDate = startDateInput ? startDateInput.value : null;
+        const endDate = endDateInput ? endDateInput.value : null;
+        
+        console.log('Current date range:', startDate, 'to', endDate);
+        
         const stockExtractBtn = document.getElementById('stockExtractBtn');
         
         // 显示加载状态
@@ -724,15 +738,25 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             console.log('Sending request to API with cache_key:', window.currentCacheKey);
             
+            // 构建请求数据
+            const requestData = {
+                cache_key: window.currentCacheKey
+            };
+            
+            // 如果有日期范围，添加到请求中
+            if (startDate && endDate) {
+                requestData.start_date = startDate;
+                requestData.end_date = endDate;
+                console.log('Including date range in request:', startDate, 'to', endDate);
+            }
+            
             // 调用API提取股票信息并生成图表
             const response = await fetch('/api/extract-stocks-chart', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    cache_key: window.currentCacheKey
-                })
+                body: JSON.stringify(requestData)
             });
             
             console.log('API response status:', response.status);
@@ -873,13 +897,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="chart-container">
                     <div class="chart-info">
                         <h4>${chart.symbol} - ${chart.name || '未知公司'}</h4>
-                        <p><strong>分析期间:</strong> ${chart.period}</p>
-                        <p><strong>当前价格:</strong> $${chart.current_price}</p>
-                        <p><strong>期间涨跌:</strong> 
-                            <span class="${chart.price_change >= 0 ? 'positive' : 'negative'}">
-                                ${chart.price_change >= 0 ? '+' : ''}${chart.price_change.toFixed(2)}%
-                            </span>
-                        </p>
+                        <p><strong>分析期间:</strong> ${chart.period || '未知'}</p>
+                        ${chart.current_price ? `<p><strong>当前价格:</strong> $${chart.current_price}</p>` : ''}
+                        ${chart.price_change !== undefined ? `
+                            <p><strong>期间涨跌:</strong> 
+                                <span class="${chart.price_change >= 0 ? 'positive' : 'negative'}">
+                                    ${chart.price_change >= 0 ? '+' : ''}${chart.price_change.toFixed(2)}%
+                                </span>
+                            </p>
+                        ` : `
+                            <p><strong>期间涨跌:</strong> 
+                                <span class="neutral">数据获取失败</span>
+                            </p>
+                        `}
                     </div>
                     ${chart.chart_url ? `
                         <img src="${chart.chart_url}" alt="${chart.symbol}走势图" class="chart-image">
