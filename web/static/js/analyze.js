@@ -1017,7 +1017,7 @@ function showMarkdownDownloadButton() {
     }
     
     // 显示按钮
-    markdownButton.style.display = 'inline-block';
+    markdownButton.style.display = 'none';
     markdownButton.style.marginBottom = '20px';
 }
 
