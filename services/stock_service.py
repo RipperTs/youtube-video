@@ -54,7 +54,7 @@ class StockService:
         except Exception as e:
             error_msg = str(e)
             if "每天最多访问该接口" in error_msg or "权限" in error_msg:
-                raise Exception("Tushare API 达到每日访问限制，请稍后再试")
+                raise Exception("API 达到每日访问限制，请稍后再试")
             else:
                 raise Exception(f"获取股票数据失败: {error_msg}")
     
@@ -158,7 +158,7 @@ class StockService:
         except Exception as e:
             error_msg = str(e)
             if "每天最多访问该接口" in error_msg or "权限" in error_msg:
-                raise Exception("Tushare API 达到每日访问限制，请稍后再试")
+                raise Exception("API 达到每日访问限制，请稍后再试")
             else:
                 raise Exception(f"获取股票数据失败: {error_msg}")
 
