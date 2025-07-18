@@ -23,7 +23,21 @@ document.addEventListener('DOMContentLoaded', function() {
     // 检查URL参数
     const urlParams = new URLSearchParams(window.location.search);
     const videoUrlFromParam = urlParams.get('video_url');
-    if (videoUrlFromParam) {
+    const encodedUrlFromParam = urlParams.get('encoded_url');
+    
+    if (encodedUrlFromParam) {
+        // 处理base64编码的URL
+        try {
+            const decodedUrl = decodeURIComponent(atob(encodedUrlFromParam));
+            videoUrlInput.value = decodedUrl;
+        } catch (error) {
+            console.error('解码URL失败:', error);
+            if (videoUrlFromParam) {
+                videoUrlInput.value = decodeURIComponent(videoUrlFromParam);
+            }
+        }
+    } else if (videoUrlFromParam) {
+        // 处理普通URL编码的URL（向后兼容）
         videoUrlInput.value = decodeURIComponent(videoUrlFromParam);
     }
     

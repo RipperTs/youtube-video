@@ -578,7 +578,9 @@ document.addEventListener('DOMContentLoaded', function() {
     };
     
     window.analyzeVideoSingle = function(url) {
-        const analyzeUrl = `/analyze?video_url=${encodeURIComponent(url)}`;
+        // 使用base64编码URL来避免502错误
+        const encodedUrl = btoa(encodeURIComponent(url));
+        const analyzeUrl = `/analyze?encoded_url=${encodedUrl}`;
         window.open(analyzeUrl, '_blank');
     };
     
