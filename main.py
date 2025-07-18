@@ -834,11 +834,11 @@ def generate_accuracy_analysis(extracted_stocks, stock_charts, cached_data):
         if report.get('executive_summary'):
             report_summary = report['executive_summary']
         elif report.get('raw_markdown_content'):
-            # 如果是Markdown内容，提取前1000字符作为摘要
+            # 如果是Markdown内容，提取前4000字符作为摘要
             raw_content = report['raw_markdown_content']
-            report_summary = raw_content[:1000] + "..." if len(raw_content) > 1000 else raw_content
+            report_summary = raw_content[:4000] + "..." if len(raw_content) > 4000 else raw_content
         elif video_analysis.get('summary'):
-            report_summary = video_analysis['summary'][:1000] + "..." if len(video_analysis.get('summary', '')) > 1000 else video_analysis.get('summary', '')
+            report_summary = video_analysis['summary'][:4000] + "..." if len(video_analysis.get('summary', '')) > 4000 else video_analysis.get('summary', '')
         else:
             report_summary = "无可用的报告摘要"
         
