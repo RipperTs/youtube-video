@@ -1000,5 +1000,107 @@ def generate_fallback_accuracy_analysis(extracted_stocks, stock_charts):
             'market_context': '数据不足'
         }
 
+@app.route('/api/analyze-channel-first-video', methods=['POST'])
+def analyze_channel_first_video():
+    """外部API: 分析指定频道的第一个视频"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': '请求数据不能为空'
+            }), 400
+        
+        channel_name = data.get('channel_name')
+        if not channel_name:
+            return jsonify({
+                'success': False,
+                'error': '缺少channel_name参数'
+            }), 400
+        
+        # 获取频道的第一个视频
+        channel_result = youtube_service.get_channel_videos(channel_name, 1)
+        videos = channel_result['videos']
+        
+        if not videos:
+            return jsonify({
+                'success': False,
+                'error': f'频道 {channel_name} 未找到视频'
+            }), 404
+        
+        first_video = videos[0]
+        video_url = first_video.get('url')
+        
+        if not video_url:
+            return jsonify({
+                'success': False,
+                'error': '获取到的视频URL无效'
+            }), 400
+        
+        # 检查缓存，如果已有分析结果则直接返回成功
+        cache_result = cache_service.get_cached_analysis_result(video_url)
+        if cache_result['found']:
+            return jsonify({
+                'success': True,
+                'message': f'频道 {channel_name} 的第一个视频已分析过',
+                'video_title': first_video.get('title', ''),
+                'video_url': video_url,
+                'from_cache': True,
+                'cache_key': cache_service._generate_cache_key(video_url)
+            })
+        
+        # 进行视频分析（仅内容分析）
+        analysis_generator = gemini_service.analyze_video_with_logging(video_url)
+        video_analysis = None
+        
+        for result in analysis_generator:
+            if not isinstance(result, str):  # 最终结果
+                video_analysis = result
+                break
+        
+        if not video_analysis:
+            return jsonify({
+                'success': False,
+                'error': '视频分析失败'
+            }), 500
+        
+        # 生成报告
+        report = report_service.generate_content_only_report(video_analysis)
+        
+        # 构建分析结果
+        result = {
+            'type': 'result',
+            'success': True,
+            'analysis_type': 'content_only',
+            'report': report,
+            'video_analysis': video_analysis,
+            'from_cache': False
+        }
+        
+        # 保存到缓存
+        cache_key = cache_service.save_analysis_result(video_url, result)
+        
+        # 保存下载用的Markdown报告
+        metadata = {
+            'analysis_type': 'content_only',
+            'video_analysis': video_analysis
+        }
+        cache_service.save_download_report(cache_key, report, video_url, metadata)
+        
+        return jsonify({
+            'success': True,
+            'message': f'频道 {channel_name} 的第一个视频分析完成',
+            'video_title': first_video.get('title', ''),
+            'video_url': video_url,
+            'from_cache': False,
+            'cache_key': cache_key
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'分析失败: {str(e)}'
+        }), 500
+
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=15000)
