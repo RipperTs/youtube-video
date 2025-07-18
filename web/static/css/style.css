@@ -1565,3 +1565,233 @@ body {
         transform: translateX(0);
     }
 }
+
+/* 操作按钮样式 */
+.action-buttons {
+    margin: 20px 0;
+    text-align: center;
+}
+
+.btn-accent {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.btn-accent:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+}
+
+.btn-accent:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-accent .fas {
+    margin-right: 8px;
+}
+
+/* 走势图分析区域样式 */
+.chart-analysis {
+    padding: 20px;
+}
+
+.chart-section {
+    margin-bottom: 30px;
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e1e5e9;
+}
+
+.chart-section h3 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+    font-size: 18px;
+    font-weight: 600;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 8px;
+}
+
+/* 提取的股票信息样式 */
+.extracted-stocks-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.stock-item-card {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    border-left: 4px solid #3498db;
+    transition: transform 0.2s ease;
+}
+
+.stock-item-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.stock-symbol-large {
+    font-size: 18px;
+    font-weight: bold;
+    color: #2c3e50;
+    display: block;
+    margin-bottom: 5px;
+}
+
+.stock-name {
+    color: #7f8c8d;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.stock-recommendation {
+    background: #e8f5e8;
+    color: #27ae60;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-block;
+}
+
+.stock-recommendation.negative {
+    background: #fdeaea;
+    color: #e74c3c;
+}
+
+.stock-recommendation.neutral {
+    background: #fef9e7;
+    color: #f39c12;
+}
+
+/* 图表容器样式 */
+.chart-container {
+    margin: 20px 0;
+    text-align: center;
+}
+
+.chart-image {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    margin: 10px 0;
+}
+
+.chart-info {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 10px 0;
+    border-left: 4px solid #3498db;
+}
+
+.chart-info h4 {
+    margin: 0 0 10px 0;
+    color: #2c3e50;
+    font-size: 16px;
+}
+
+.chart-info p {
+    margin: 5px 0;
+    color: #555;
+    font-size: 14px;
+}
+
+/* 准确性分析样式 */
+.accuracy-analysis {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 12px;
+    margin: 20px 0;
+}
+
+.accuracy-analysis h3 {
+    color: white;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+    margin-bottom: 15px;
+}
+
+.accuracy-score {
+    font-size: 24px;
+    font-weight: bold;
+    text-align: center;
+    margin: 15px 0;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+}
+
+.accuracy-details {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 15px;
+    border-radius: 8px;
+    margin: 10px 0;
+}
+
+.accuracy-details h4 {
+    margin-bottom: 10px;
+    color: white;
+}
+
+.accuracy-details ul {
+    list-style: none;
+    padding: 0;
+}
+
+.accuracy-details li {
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.accuracy-details li:last-child {
+    border-bottom: none;
+}
+
+/* 加载状态样式 */
+.loading-chart {
+    text-align: center;
+    padding: 40px 20px;
+    color: #7f8c8d;
+}
+
+.loading-chart .fas {
+    font-size: 24px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* 错误状态样式 */
+.chart-error {
+    background: #fdeaea;
+    color: #e74c3c;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #f5c6cb;
+    margin: 15px 0;
+    text-align: center;
+}
+
+.chart-error .fas {
+    font-size: 20px;
+    margin-bottom: 10px;
+}

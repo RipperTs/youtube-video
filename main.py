@@ -4,10 +4,12 @@ from services.gemini_service import GeminiService
 from services.stock_service import StockService
 from services.report_service import ReportService
 from services.cache_service import CacheService
+from services.chart_service import ChartService
 from config.settings import Config
 import os
 import json
 import time
+import re
 
 app = Flask(__name__, 
            template_folder='web/templates',
@@ -21,6 +23,7 @@ gemini_service = GeminiService()
 stock_service = StockService()
 report_service = ReportService()
 cache_service = CacheService()
+chart_service = ChartService()
 
 @app.route('/')
 def index():
@@ -106,6 +109,12 @@ def _analyze_content_only_stream(video_url, log_callback):
             # 从缓存获取完整的分析结果
             cached_analysis = cache_result['analysis_result']
             cached_analysis['from_cache'] = True
+            
+            # 重要：设置cache_key
+            cache_key = cache_service._generate_cache_key(video_url)
+            cached_analysis['cache_key'] = cache_key
+            print(f"从缓存返回结果，设置cache_key: {cache_key}")
+            
             yield f"data: {json.dumps(cached_analysis)}\n\n"
             return
         
@@ -169,6 +178,12 @@ def _analyze_stock_extraction_stream(video_url, date_range, log_callback):
             # 从缓存获取完整的分析结果
             cached_analysis = cache_result['analysis_result']
             cached_analysis['from_cache'] = True
+            
+            # 重要：设置cache_key
+            cache_key = cache_service._generate_cache_key(video_url)
+            cached_analysis['cache_key'] = cache_key
+            print(f"从缓存返回结果，设置cache_key: {cache_key}")
+            
             yield f"data: {json.dumps(cached_analysis)}\n\n"
             return
         
@@ -277,6 +292,12 @@ def _analyze_manual_stock_stream(video_url, stock_symbol, date_range, log_callba
             # 从缓存获取完整的分析结果
             cached_analysis = cache_result['analysis_result']
             cached_analysis['from_cache'] = True
+            
+            # 重要：设置cache_key
+            cache_key = cache_service._generate_cache_key(cache_urls)
+            cached_analysis['cache_key'] = cache_key
+            print(f"从缓存返回结果，设置cache_key: {cache_key}")
+            
             yield f"data: {json.dumps(cached_analysis)}\n\n"
             return
         
@@ -571,5 +592,323 @@ def get_stock_data():
             'error': str(e)
         }), 500
 
+@app.route('/api/extract-stocks-chart', methods=['POST'])
+def extract_stocks_chart():
+    """提取股票信息并生成走势图分析"""
+    try:
+        data = request.get_json()
+        cache_key = data.get('cache_key')
+        date_range = data.get('date_range', 30)
+        
+        print(f"收到股票提取请求，cache_key: {cache_key}")
+        
+        if not cache_key:
+            print("错误：缺少cache_key参数")
+            return jsonify({
+                'success': False,
+                'error': '缺少cache_key参数'
+            }), 400
+        
+        # 从缓存获取分析结果
+        print(f"尝试从缓存获取数据，cache_key: {cache_key}")
+        cached_data = cache_service.get_analysis_result_by_key(cache_key)
+        print(f"缓存数据获取结果: {cached_data is not None}")
+        if not cached_data:
+            print(f"错误：未找到cache_key {cache_key} 对应的分析结果")
+            # 列出所有可用的缓存文件进行调试
+            import os
+            cache_dir = cache_service.analysis_cache_dir
+            if os.path.exists(cache_dir):
+                cache_files = os.listdir(cache_dir)
+                print(f"可用的缓存文件: {cache_files}")
+            else:
+                print(f"缓存目录不存在: {cache_dir}")
+            
+            return jsonify({
+                'success': False,
+                'error': '未找到对应的分析结果'
+            }), 404
+        
+        # 提取股票信息
+        extracted_stocks = extract_stocks_from_report(cached_data)
+        
+        if not extracted_stocks:
+            return jsonify({
+                'success': False,
+                'error': '未能从报告中提取到有效的股票信息'
+            }), 400
+        
+        # 生成股票图表
+        stock_charts = []
+        for stock in extracted_stocks:
+            chart_result = chart_service.generate_stock_chart(stock['symbol'], date_range)
+            if chart_result.get('success'):
+                stock_charts.append(chart_result)
+        
+        # 生成准确性分析
+        accuracy_analysis = generate_accuracy_analysis(extracted_stocks, stock_charts, cached_data)
+        
+        # 清理旧图表
+        chart_service.cleanup_old_charts()
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'extracted_stocks': extracted_stocks,
+                'stock_charts': stock_charts,
+                'accuracy_analysis': accuracy_analysis
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'股票提取和图表生成失败: {str(e)}'
+        }), 500
+
+def extract_stocks_from_report(cached_data):
+    """从分析报告中提取股票信息"""
+    extracted_stocks = []
+    
+    try:
+        # 获取报告内容
+        report = cached_data.get('report', {})
+        video_analysis = cached_data.get('video_analysis', {})
+        
+        # 尝试从不同字段提取股票信息
+        content_sources = []
+        
+        # 从报告中提取
+        if report.get('raw_markdown_content'):
+            content_sources.append(report['raw_markdown_content'])
+        if report.get('executive_summary'):
+            content_sources.append(report['executive_summary'])
+        if report.get('investment_recommendation'):
+            if isinstance(report['investment_recommendation'], dict):
+                content_sources.append(report['investment_recommendation'].get('reasoning', ''))
+            else:
+                content_sources.append(str(report['investment_recommendation']))
+        
+        # 从视频分析中提取
+        if video_analysis.get('summary'):
+            content_sources.append(video_analysis['summary'])
+        if video_analysis.get('companies'):
+            content_sources.extend(video_analysis['companies'])
+        
+        # 合并所有内容
+        combined_content = ' '.join(content_sources)
+        
+        # 使用正则表达式提取股票代码
+        stock_pattern = r'\b([A-Z]{1,5})\b'
+        potential_stocks = re.findall(stock_pattern, combined_content)
+        
+        # 过滤有效的股票代码
+        known_stocks = {
+            'AAPL': {'name': 'Apple Inc.', 'confidence': 'high'},
+            'GOOGL': {'name': 'Alphabet Inc.', 'confidence': 'high'},
+            'GOOG': {'name': 'Alphabet Inc.', 'confidence': 'high'},
+            'MSFT': {'name': 'Microsoft Corporation', 'confidence': 'high'},
+            'AMZN': {'name': 'Amazon.com Inc.', 'confidence': 'high'},
+            'TSLA': {'name': 'Tesla Inc.', 'confidence': 'high'},
+            'META': {'name': 'Meta Platforms Inc.', 'confidence': 'high'},
+            'NVDA': {'name': 'NVIDIA Corporation', 'confidence': 'high'},
+            'NFLX': {'name': 'Netflix Inc.', 'confidence': 'high'},
+            'CRM': {'name': 'Salesforce Inc.', 'confidence': 'high'},
+            'ADBE': {'name': 'Adobe Inc.', 'confidence': 'high'},
+            'ORCL': {'name': 'Oracle Corporation', 'confidence': 'high'},
+            'IBM': {'name': 'IBM', 'confidence': 'high'},
+            'INTC': {'name': 'Intel Corporation', 'confidence': 'high'},
+            'AMD': {'name': 'Advanced Micro Devices', 'confidence': 'high'},
+            'BABA': {'name': 'Alibaba Group', 'confidence': 'high'},
+            'V': {'name': 'Visa Inc.', 'confidence': 'medium'},
+            'MA': {'name': 'Mastercard Inc.', 'confidence': 'medium'},
+        }
+        
+        # 分析股票建议
+        def extract_recommendation(content, symbol):
+            content_lower = content.lower()
+            if any(word in content_lower for word in ['买入', '增仓', '看多', 'buy', 'bullish']):
+                return '建议买入'
+            elif any(word in content_lower for word in ['卖出', '减仓', '看空', 'sell', 'bearish']):
+                return '建议卖出'
+            elif any(word in content_lower for word in ['持有', 'hold']):
+                return '建议持有'
+            else:
+                return '无明确建议'
+        
+        # 处理发现的股票
+        unique_stocks = list(set(potential_stocks))
+        for symbol in unique_stocks:
+            if symbol in known_stocks:
+                extracted_stocks.append({
+                    'symbol': symbol,
+                    'name': known_stocks[symbol]['name'],
+                    'confidence': known_stocks[symbol]['confidence'],
+                    'recommendation': extract_recommendation(combined_content, symbol)
+                })
+        
+        # 如果没有找到股票，尝试从公司名称推断
+        if not extracted_stocks:
+            company_mappings = {
+                'apple': 'AAPL',
+                'google': 'GOOGL',
+                'alphabet': 'GOOGL',
+                'microsoft': 'MSFT',
+                'amazon': 'AMZN',
+                'tesla': 'TSLA',
+                'meta': 'META',
+                'facebook': 'META',
+                'nvidia': 'NVDA',
+                'netflix': 'NFLX'
+            }
+            
+            content_lower = combined_content.lower()
+            for company, symbol in company_mappings.items():
+                if company in content_lower and symbol not in [s['symbol'] for s in extracted_stocks]:
+                    extracted_stocks.append({
+                        'symbol': symbol,
+                        'name': known_stocks.get(symbol, {}).get('name', f'{symbol} Corporation'),
+                        'confidence': 'medium',
+                        'recommendation': extract_recommendation(combined_content, symbol)
+                    })
+        
+        return extracted_stocks[:5]  # 限制最多5只股票
+        
+    except Exception as e:
+        print(f"股票提取失败: {e}")
+        return []
+
+def generate_accuracy_analysis(extracted_stocks, stock_charts, cached_data):
+    """生成准确性分析"""
+    try:
+        # 从不同字段获取报告摘要
+        report = cached_data.get('report', {})
+        video_analysis = cached_data.get('video_analysis', {})
+        
+        # 尝试获取最相关的报告内容
+        report_summary = ""
+        
+        # 优先级：executive_summary -> raw_markdown_content -> video_analysis.summary
+        if report.get('executive_summary'):
+            report_summary = report['executive_summary']
+        elif report.get('raw_markdown_content'):
+            # 如果是Markdown内容，提取前1000字符作为摘要
+            raw_content = report['raw_markdown_content']
+            report_summary = raw_content[:1000] + "..." if len(raw_content) > 1000 else raw_content
+        elif video_analysis.get('summary'):
+            report_summary = video_analysis['summary'][:1000] + "..." if len(video_analysis.get('summary', '')) > 1000 else video_analysis.get('summary', '')
+        else:
+            report_summary = "无可用的报告摘要"
+        
+        # 构建分析提示词
+        analysis_prompt = f"""
+作为专业的投资分析师，请分析以下YouTube视频投资建议的准确性：
+
+## 提取的股票信息：
+{json.dumps(extracted_stocks, ensure_ascii=False, indent=2)}
+
+## 实际股票表现：
+{json.dumps([{
+    'symbol': chart['symbol'],
+    'current_price': chart.get('current_price'),
+    'price_change': chart.get('price_change')
+} for chart in stock_charts if chart.get('success')], ensure_ascii=False, indent=2)}
+
+## 原始分析报告摘要：
+{report_summary}
+
+请从以下几个方面进行专业分析：
+1. **股票选择合理性** - 评估选股逻辑和质量
+2. **投资建议准确性** - 对比建议与实际表现
+3. **分析逻辑严谨性** - 评估推理过程和依据
+4. **整体准确性评分** - 给出1-10分的综合评分
+
+请用简洁专业的语言回答，并给出具体的评分理由和改进建议。
+格式要求：开头就直接给出评分，如"综合准确性评分: 7.5/10"
+        """
+        
+        print("开始调用Gemini进行准确性分析...")
+        print(f"使用的报告摘要长度: {len(report_summary)}")
+        
+        # 调用Gemini进行分析
+        gemini_result = gemini_service.generate_text(analysis_prompt)
+        
+        if gemini_result.get('success'):
+            analysis_content = gemini_result.get('summary', '')
+            
+            # 尝试从结果中提取评分
+            score_match = re.search(r'(\d+(?:\.\d+)?)/10', analysis_content)
+            overall_score = f"{score_match.group(1)}/10" if score_match else "7.0/10"
+            
+            # 提取关键发现（简化版）
+            key_findings = []
+            if '股票选择' in analysis_content:
+                key_findings.append('已分析股票选择合理性')
+            if '投资建议' in analysis_content:
+                key_findings.append('已评估投资建议准确性')
+            if '分析逻辑' in analysis_content:
+                key_findings.append('已审查分析逻辑严谨性')
+            
+            return {
+                'overall_score': overall_score,
+                'analysis_summary': analysis_content,
+                'key_findings': key_findings if key_findings else ['综合分析已完成'],
+                'market_context': '基于当前市场数据进行分析'
+            }
+        else:
+            print(f"Gemini分析失败: {gemini_result.get('error')}")
+            return generate_fallback_accuracy_analysis(extracted_stocks, stock_charts)
+        
+    except Exception as e:
+        print(f"准确性分析失败: {e}")
+        return generate_fallback_accuracy_analysis(extracted_stocks, stock_charts)
+
+def generate_fallback_accuracy_analysis(extracted_stocks, stock_charts):
+    """生成备用的准确性分析"""
+    try:
+        total_stocks = len(extracted_stocks)
+        positive_performance = sum(1 for chart in stock_charts 
+                                 if chart.get('success') and chart.get('price_change', 0) > 0)
+        
+        # 基于股票表现计算简单评分
+        if total_stocks > 0:
+            performance_ratio = positive_performance / total_stocks
+            base_score = 5.0 + (performance_ratio * 3.0)  # 5-8分区间
+        else:
+            base_score = 6.0
+            
+        return {
+            'overall_score': f"{base_score:.1f}/10",
+            'analysis_summary': f"""
+基于数据分析的准确性评估：
+
+**股票选择分析：**
+- 共提取到 {total_stocks} 只股票进行分析
+- 其中 {positive_performance} 只股票表现为正收益
+
+**投资建议准确性：**
+- 正收益比例: {positive_performance}/{total_stocks} ({performance_ratio*100:.1f}%)
+- 整体投资建议{('较为准确' if performance_ratio > 0.6 else '有待改进')}
+
+**综合评估：**
+投资建议在当前市场环境下表现{'良好' if performance_ratio > 0.5 else '一般'}，
+建议投资者结合个人风险承受能力和市场环境做出决策。
+            """.strip(),
+            'key_findings': [
+                f'分析了{total_stocks}只股票的表现',
+                f'{positive_performance}只股票获得正收益',
+                '提供了基于数据的客观评估'
+            ],
+            'market_context': '基于实际股票价格数据进行分析'
+        }
+        
+    except Exception as e:
+        return {
+            'overall_score': 'N/A',
+            'analysis_summary': f'无法生成准确性分析: {str(e)}',
+            'key_findings': ['分析生成失败'],
+            'market_context': '数据不足'
+        }
+
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=15000)
+    app.run(debug=False, host='0.0.0.0', port=15000)

@@ -211,6 +211,9 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // 显示PDF下载按钮
         showMarkdownDownloadButton();
+        
+        // 显示股票提取按钮（仅在有分析结果时）
+        showStockExtractButton();
     }
     
     function startAnalysis() {
@@ -283,6 +286,13 @@ document.addEventListener('DOMContentLoaded', function() {
         // 显示结果区域
         resultsSection.style.display = 'block';
         resultsSection.scrollIntoView({ behavior: 'smooth' });
+        
+        // 确保按钮容器也显示
+        const actionButtons = document.querySelector('.action-buttons');
+        if (actionButtons) {
+            actionButtons.style.display = 'block';
+            console.log('Action buttons container shown');
+        }
         
         if (typeof showNotification === 'function') {
             showNotification('分析完成！', 'success');
@@ -422,6 +432,15 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function displayVideoAnalysis(analysis, analysisType, extractedStocks) {
+        console.log('displayVideoAnalysis 收到的参数:', { analysis, analysisType, extractedStocks }); // 调试日志
+        console.log('analysis.summary:', analysis?.summary); // 调试日志
+        console.log('analysis类型:', typeof analysis); // 调试日志
+        
+        if (!analysis) {
+            console.warn('analysis 为空或未定义');
+            analysis = { summary: '暂无摘要' };
+        }
+        
         document.getElementById('videoSummary').innerHTML = `
             <h3>视频内容摘要</h3>
             <div class="content-block">${formatContent(analysis.summary || '暂无摘要')}</div>
@@ -599,6 +618,304 @@ document.addEventListener('DOMContentLoaded', function() {
             timerDisplay.textContent = '0s';
         }
     }
+    
+    // 股票提取按钮相关功能
+    function initStockExtractButton() {
+        const stockExtractBtn = document.getElementById('stockExtractBtn');
+        if (stockExtractBtn) {
+            stockExtractBtn.addEventListener('click', handleStockExtraction);
+        }
+    }
+    
+    function showStockExtractButton() {
+        console.log('showStockExtractButton called');
+        
+        // 使用setTimeout确保DOM已经更新
+        setTimeout(() => {
+            const stockExtractBtn = document.getElementById('stockExtractBtn');
+            console.log('Looking for button:', stockExtractBtn);
+            
+            if (stockExtractBtn) {
+                stockExtractBtn.style.display = 'inline-block';
+                stockExtractBtn.style.visibility = 'visible';
+                console.log('Stock extract button shown, cache_key:', window.currentCacheKey);
+            } else {
+                console.error('Stock extract button not found in DOM');
+                // 打印所有按钮，看看发生了什么
+                const allButtons = document.querySelectorAll('button');
+                console.log('All buttons found:', allButtons);
+            }
+        }, 100);
+    }
+    
+    function hideStockExtractButton() {
+        const stockExtractBtn = document.getElementById('stockExtractBtn');
+        if (stockExtractBtn) {
+            stockExtractBtn.style.display = 'none';
+        }
+    }
+    
+    async function handleStockExtraction() {
+        console.log('handleStockExtraction called, cache_key:', window.currentCacheKey);
+        
+        if (!window.currentCacheKey) {
+            alert('没有找到分析结果，请先进行分析');
+            return;
+        }
+        
+        const stockExtractBtn = document.getElementById('stockExtractBtn');
+        
+        // 显示加载状态
+        setStockExtractButtonLoading(true);
+        
+        try {
+            console.log('Sending request to API with cache_key:', window.currentCacheKey);
+            
+            // 调用API提取股票信息并生成图表
+            const response = await fetch('/api/extract-stocks-chart', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    cache_key: window.currentCacheKey,
+                    date_range: 30  // 默认30天
+                })
+            });
+            
+            console.log('API response status:', response.status);
+            
+            const result = await response.json();
+            console.log('API response result:', result);
+            
+            if (result.success) {
+                // 显示结果
+                displayStockChartAnalysis(result.data);
+                
+                // 显示走势图分析标签页
+                showChartTab();
+                
+                // 自动切换到走势图标签
+                showTab('chart');
+                
+                if (typeof showNotification === 'function') {
+                    showNotification('股票提取和图表分析完成！', 'success');
+                }
+            } else {
+                throw new Error(result.error || '股票提取失败');
+            }
+            
+        } catch (error) {
+            console.error('股票提取错误:', error);
+            showError(`股票提取失败: ${error.message}`);
+        } finally {
+            setStockExtractButtonLoading(false);
+        }
+    }
+    
+    function setStockExtractButtonLoading(loading) {
+        const stockExtractBtn = document.getElementById('stockExtractBtn');
+        if (stockExtractBtn) {
+            stockExtractBtn.disabled = loading;
+            stockExtractBtn.querySelector('.btn-text').style.display = loading ? 'none' : 'inline-block';
+            stockExtractBtn.querySelector('.loading-spinner').style.display = loading ? 'inline-block' : 'none';
+        }
+    }
+    
+    function showChartTab() {
+        const chartTabBtn = document.getElementById('chartTabBtn');
+        if (chartTabBtn) {
+            chartTabBtn.style.display = 'inline-block';
+        }
+    }
+    
+    function hideChartTab() {
+        const chartTabBtn = document.getElementById('chartTabBtn');
+        if (chartTabBtn) {
+            chartTabBtn.style.display = 'none';
+        }
+    }
+    
+    function displayStockChartAnalysis(data) {
+        console.log('显示股票图表分析:', data);
+        
+        const { extracted_stocks, stock_charts, accuracy_analysis } = data;
+        
+        // 显示提取的股票信息
+        displayExtractedStocks(extracted_stocks);
+        
+        // 显示股票图表
+        displayStockCharts(stock_charts);
+        
+        // 显示准确性分析
+        displayAccuracyAnalysis(accuracy_analysis);
+    }
+    
+    function displayExtractedStocks(extractedStocks) {
+        const container = document.getElementById('extractedStocksInfo');
+        
+        if (!extractedStocks || extractedStocks.length === 0) {
+            container.innerHTML = `
+                <h3>提取的股票信息</h3>
+                <p>未能从报告中提取到有效的股票信息</p>
+            `;
+            return;
+        }
+        
+        let stocksHtml = `
+            <h3>提取的股票信息 (${extractedStocks.length}只)</h3>
+            <div class="extracted-stocks-grid">
+        `;
+        
+        extractedStocks.forEach(stock => {
+            const recommendationClass = getRecommendationClass(stock.recommendation);
+            stocksHtml += `
+                <div class="stock-item-card">
+                    <span class="stock-symbol-large">${stock.symbol}</span>
+                    <div class="stock-name">${stock.name || '未知公司'}</div>
+                    <div class="stock-recommendation ${recommendationClass}">
+                        ${stock.recommendation || '无建议'}
+                    </div>
+                    <div style="margin-top: 8px; font-size: 12px; color: #7f8c8d;">
+                        提取置信度: ${stock.confidence || 'N/A'}
+                    </div>
+                </div>
+            `;
+        });
+        
+        stocksHtml += '</div>';
+        container.innerHTML = stocksHtml;
+    }
+    
+    function getRecommendationClass(recommendation) {
+        if (!recommendation) return 'neutral';
+        
+        const rec = recommendation.toLowerCase();
+        if (rec.includes('买入') || rec.includes('增仓') || rec.includes('看多')) {
+            return 'positive';
+        } else if (rec.includes('卖出') || rec.includes('减仓') || rec.includes('看空')) {
+            return 'negative';
+        } else {
+            return 'neutral';
+        }
+    }
+    
+    function displayStockCharts(stockCharts) {
+        const container = document.getElementById('stockChartContainer');
+        
+        if (!stockCharts || stockCharts.length === 0) {
+            container.innerHTML = `
+                <h3>股票走势图</h3>
+                <div class="chart-error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>未能生成股票走势图</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let chartsHtml = '<h3>股票走势图分析</h3>';
+        
+        stockCharts.forEach(chart => {
+            chartsHtml += `
+                <div class="chart-container">
+                    <div class="chart-info">
+                        <h4>${chart.symbol} - ${chart.name || '未知公司'}</h4>
+                        <p><strong>分析期间:</strong> ${chart.period}</p>
+                        <p><strong>当前价格:</strong> $${chart.current_price}</p>
+                        <p><strong>期间涨跌:</strong> 
+                            <span class="${chart.price_change >= 0 ? 'positive' : 'negative'}">
+                                ${chart.price_change >= 0 ? '+' : ''}${chart.price_change.toFixed(2)}%
+                            </span>
+                        </p>
+                    </div>
+                    ${chart.chart_url ? `
+                        <img src="${chart.chart_url}" alt="${chart.symbol}走势图" class="chart-image">
+                    ` : `
+                        <div class="chart-error">
+                            <i class="fas fa-chart-line"></i>
+                            <p>图表生成失败</p>
+                        </div>
+                    `}
+                </div>
+            `;
+        });
+        
+        container.innerHTML = chartsHtml;
+    }
+    
+    function displayAccuracyAnalysis(accuracyAnalysis) {
+        const container = document.getElementById('accuracyAnalysis');
+        
+        if (!accuracyAnalysis) {
+            container.innerHTML = `
+                <h3>准确性分析</h3>
+                <div class="chart-error">
+                    <p>准确性分析暂时不可用</p>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = `
+            <div class="accuracy-analysis">
+                <h3>AI投资建议准确性分析</h3>
+                
+                <div class="accuracy-score">
+                    <div>综合准确性评分</div>
+                    <div style="font-size: 36px; margin: 10px 0;">
+                        ${accuracyAnalysis.overall_score || 'N/A'}
+                    </div>
+                </div>
+                
+                <div class="accuracy-details">
+                    <h4>分析详情</h4>
+                    <div style="white-space: pre-line;">
+                        ${accuracyAnalysis.analysis_summary || '暂无详细分析'}
+                    </div>
+                </div>
+                
+                ${accuracyAnalysis.key_findings ? `
+                    <div class="accuracy-details">
+                        <h4>关键发现</h4>
+                        <ul>
+                            ${accuracyAnalysis.key_findings.map(finding => `<li>${finding}</li>`).join('')}
+                        </ul>
+                    </div>
+                ` : ''}
+                
+                ${accuracyAnalysis.market_context ? `
+                    <div class="accuracy-details">
+                        <h4>市场背景</h4>
+                        <div>${accuracyAnalysis.market_context}</div>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+    }
+    
+    // 初始化股票提取按钮
+    initStockExtractButton();
+    
+    // 添加全局测试函数
+    window.testShowButton = function() {
+        console.log('Manual test: showing stock extract button');
+        showStockExtractButton();
+    };
+    
+    window.debugButton = function() {
+        const btn = document.getElementById('stockExtractBtn');
+        const container = document.querySelector('.action-buttons');
+        const results = document.getElementById('analysisResults');
+        
+        console.log('Debug info:');
+        console.log('Button element:', btn);
+        console.log('Button computed styles:', btn ? window.getComputedStyle(btn) : 'N/A');
+        console.log('Container element:', container);
+        console.log('Results section:', results);
+        console.log('Results section display:', results ? results.style.display : 'N/A');
+        console.log('Current cache key:', window.currentCacheKey);
+    };
 });
 
 // 安全的Markdown解析函数
@@ -635,7 +952,7 @@ function formatContent(content, useMarkdown = true) {
 }
 
 // 标签页切换功能
-function showTab(tabName) {
+function showTab(tabName, clickedElement = null) {
     // 隐藏所有标签内容
     document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.remove('active');
@@ -650,7 +967,21 @@ function showTab(tabName) {
     document.getElementById(tabName + 'Tab').classList.add('active');
     
     // 激活对应的标签按钮
-    event.target.classList.add('active');
+    if (clickedElement) {
+        // 如果传入了点击的元素，直接使用
+        clickedElement.classList.add('active');
+    } else if (typeof event !== 'undefined' && event.target) {
+        // 如果是通过点击触发的，使用event.target
+        event.target.classList.add('active');
+    } else {
+        // 如果是通过代码调用的，查找对应的标签按钮
+        const targetButton = document.querySelector(`[onclick="showTab('${tabName}')"]`) || 
+                           document.querySelector(`#${tabName}TabBtn`) ||
+                           document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
+        if (targetButton) {
+            targetButton.classList.add('active');
+        }
+    }
 }
 
 // PDF下载相关函数

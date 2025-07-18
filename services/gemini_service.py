@@ -131,11 +131,26 @@ class GeminiService:
                 if log_callback:
                     yield log_callback("视频分析完成", "success")
                 
-                # 直接返回AI的原始Markdown内容，不进行字段提取处理
-                yield {
+                # 返回完整的分析结果，同时提供原始内容和结构化数据
+                analysis_result = {
                     'raw_content': content,
-                    'summary': content  # 保持兼容性，前端可能还会用到summary字段
+                    'summary': content  # 保持兼容性
                 }
+                
+                # 解析出结构化数据以便后续处理
+                try:
+                    parsed_result = self._parse_analysis_result(content)
+                    analysis_result.update(parsed_result)
+                except Exception as e:
+                    # 如果解析失败，至少保证基本字段存在
+                    analysis_result.update({
+                        'companies': [],
+                        'market_events': [],
+                        'investment_views': [],
+                        'risks': []
+                    })
+                
+                yield analysis_result
             else:
                 if log_callback:
                     yield log_callback("Gemini API返回了空的分析结果", "error")
@@ -304,10 +319,57 @@ class GeminiService:
     
     def _extract_summary(self, content):
         """提取视频内容摘要"""
-        # 简单的文本处理，实际可以用更复杂的NLP方法
+        # 首先尝试提取"执行摘要"部分
         lines = content.split('\n')
-        summary_lines = [line for line in lines if '总结' in line or '概述' in line]
-        return '\n'.join(summary_lines[:3]) if summary_lines else content[:200]
+        summary_text = ""
+        
+        # 查找"执行摘要"或相关章节
+        summary_section_started = False
+        next_section_started = False
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            # 检查是否开始执行摘要部分
+            if ('执行摘要' in line or '## 1.' in line or '核心投资观点' in line or 
+                '主要投资建议' in line or line.startswith('## 1')):
+                summary_section_started = True
+                continue
+            
+            # 检查是否到达下一个章节
+            if summary_section_started and (line.startswith('## 2') or 
+                                          '信息来源分析' in line or 
+                                          line.startswith('# 2') or
+                                          ('##' in line and '执行摘要' not in line and '投资观点' not in line)):
+                next_section_started = True
+                break
+            
+            # 收集摘要内容
+            if summary_section_started and not next_section_started:
+                if line.startswith('*') or line.startswith('-') or line.startswith('•'):
+                    summary_text += line + "\n"
+                elif line and not line.startswith('#'):
+                    summary_text += line + "\n"
+        
+        # 如果没有找到执行摘要，使用前面的内容
+        if not summary_text:
+            # 查找包含关键词的行作为摘要
+            summary_lines = []
+            for line in lines:
+                if any(keyword in line for keyword in ['投资', '建议', '观点', '分析', '股票', '市场']):
+                    summary_lines.append(line.strip())
+                if len(summary_lines) >= 5:  # 限制长度
+                    break
+            
+            if summary_lines:
+                summary_text = '\n'.join(summary_lines)
+            else:
+                # 最后的备选方案：使用内容前200字符
+                summary_text = content[:300]
+        
+        return summary_text.strip() if summary_text else '暂无摘要'
     
     def _extract_companies(self, content):
         """提取提到的公司"""
@@ -473,7 +535,8 @@ class GeminiService:
         }
         
         # 构建包含多个视频的请求
-        parts = [{'text': prompt}]
+        parts = []
+        parts.append({'text': prompt})
         for i, video_url in enumerate(video_urls):
             parts.append({
                 'file_data': {
@@ -532,3 +595,68 @@ class GeminiService:
             if any(keyword in line for keyword in risk_keywords):
                 risks.append(line.strip())
         return risks[:3]
+    
+    def generate_text(self, prompt):
+        """
+        使用Gemini生成文本内容
+        
+        Args:
+            prompt: 文本生成提示词
+            
+        Returns:
+            dict: 包含生成结果的字典
+        """
+        try:
+            url = f"{self.base_url}/models/gemini-2.5-pro:generateContent"
+            
+            headers = {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': self.api_key
+            }
+            
+            data = {
+                "contents": [{
+                    "parts": [{
+                        "text": prompt
+                    }]
+                }],
+                "generationConfig": {
+                    "temperature": 0.7,
+                    "topK": 32,
+                    "topP": 1,
+                    "maxOutputTokens": 8192,
+                }
+            }
+            
+            response = requests.post(url, headers=headers, json=data, timeout=120)
+            
+            if response.status_code == 200:
+                result = response.json()
+                
+                if 'candidates' in result and len(result['candidates']) > 0:
+                    content = result['candidates'][0]['content']['parts'][0]['text']
+                    
+                    return {
+                        'success': True,
+                        'summary': content,
+                        'raw_content': content
+                    }
+                else:
+                    return {
+                        'success': False,
+                        'error': '未获取到有效回复',
+                        'summary': '生成失败'
+                    }
+            else:
+                return {
+                    'success': False,
+                    'error': f'API请求失败: {response.status_code}',
+                    'summary': '生成失败'
+                }
+                
+        except Exception as e:
+            return {
+                'success': False,
+                'error': str(e),
+                'summary': '生成失败'
+            }

@@ -142,3 +142,24 @@ class CacheService:
     def get_cached_result(self, video_urls):
         """获取缓存结果（兼容旧方法）"""
         return self.get_cached_analysis_result(video_urls)
+    
+    def get_analysis_result_by_key(self, cache_key):
+        """通过cache_key直接获取分析结果"""
+        cache_file = self._get_analysis_cache_file_path(cache_key)
+        print(f"缓存服务：查找文件 {cache_file}")
+        
+        if os.path.exists(cache_file):
+            print(f"缓存文件存在，尝试读取")
+            try:
+                with open(cache_file, 'r', encoding='utf-8') as f:
+                    cache_data = json.load(f)
+                    result = cache_data.get('analysis_result')
+                    print(f"成功读取缓存数据，有结果: {result is not None}")
+                    return result
+            except Exception as e:
+                print(f"读取缓存文件失败: {e}")
+                return None
+        else:
+            print(f"缓存文件不存在: {cache_file}")
+        
+        return None
