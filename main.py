@@ -709,115 +709,135 @@ def extract_stocks_chart():
         }), 500
 
 def extract_stocks_from_report(cached_data):
-    """从分析报告中提取股票信息"""
-    extracted_stocks = []
-    
+    """使用AI智能分析从分析报告中提取股票信息"""
     try:
+        print(f"🤖 开始使用AI智能提取股票信息")
+        
         # 获取报告内容
         report = cached_data.get('report', {})
         video_analysis = cached_data.get('video_analysis', {})
         
-        # 尝试从不同字段提取股票信息
-        content_sources = []
+        # 构建完整的分析内容
+        analysis_content = ""
         
-        # 从报告中提取
         if report.get('raw_markdown_content'):
-            content_sources.append(report['raw_markdown_content'])
-        if report.get('executive_summary'):
-            content_sources.append(report['executive_summary'])
-        if report.get('investment_recommendation'):
-            if isinstance(report['investment_recommendation'], dict):
-                content_sources.append(report['investment_recommendation'].get('reasoning', ''))
-            else:
-                content_sources.append(str(report['investment_recommendation']))
+            analysis_content = report['raw_markdown_content']
+        elif video_analysis.get('summary'):
+            analysis_content = video_analysis['summary']
+        elif report.get('executive_summary'):
+            analysis_content = report['executive_summary']
+        else:
+            print("❌ 未找到可分析的内容")
+            return []
         
-        # 从视频分析中提取
-        if video_analysis.get('summary'):
-            content_sources.append(video_analysis['summary'])
-        if video_analysis.get('companies'):
-            content_sources.extend(video_analysis['companies'])
+        print(f"📊 准备分析的内容长度: {len(analysis_content)}")
         
-        # 合并所有内容
-        combined_content = ' '.join(content_sources)
+        # 限制内容长度，避免超过API限制
+        if len(analysis_content) > 10000:
+            analysis_content = analysis_content[:10000] + "..."
+            print(f"📊 内容过长，截取前10000字符")
         
-        # 使用正则表达式提取股票代码
-        stock_pattern = r'\b([A-Z]{1,5})\b'
-        potential_stocks = re.findall(stock_pattern, combined_content)
+        # 使用Gemini AI分析提取股票信息
+        extracted_stocks = analyze_stocks_with_ai(analysis_content)
         
-        # 过滤有效的股票代码
-        known_stocks = {
-            'AAPL': {'name': 'Apple Inc.', 'confidence': 'high'},
-            'GOOGL': {'name': 'Alphabet Inc.', 'confidence': 'high'},
-            'GOOG': {'name': 'Alphabet Inc.', 'confidence': 'high'},
-            'MSFT': {'name': 'Microsoft Corporation', 'confidence': 'high'},
-            'AMZN': {'name': 'Amazon.com Inc.', 'confidence': 'high'},
-            'TSLA': {'name': 'Tesla Inc.', 'confidence': 'high'},
-            'META': {'name': 'Meta Platforms Inc.', 'confidence': 'high'},
-            'NVDA': {'name': 'NVIDIA Corporation', 'confidence': 'high'},
-            'NFLX': {'name': 'Netflix Inc.', 'confidence': 'high'},
-            'CRM': {'name': 'Salesforce Inc.', 'confidence': 'high'},
-            'ADBE': {'name': 'Adobe Inc.', 'confidence': 'high'},
-            'ORCL': {'name': 'Oracle Corporation', 'confidence': 'high'},
-            'IBM': {'name': 'IBM', 'confidence': 'high'},
-            'INTC': {'name': 'Intel Corporation', 'confidence': 'high'},
-            'AMD': {'name': 'Advanced Micro Devices', 'confidence': 'high'},
-            'BABA': {'name': 'Alibaba Group', 'confidence': 'high'},
-            'V': {'name': 'Visa Inc.', 'confidence': 'medium'},
-            'MA': {'name': 'Mastercard Inc.', 'confidence': 'medium'},
-        }
+        if extracted_stocks:
+            print(f"✅ AI成功提取到 {len(extracted_stocks)} 只股票")
+            for stock in extracted_stocks:
+                print(f"  📈 {stock['symbol']} - {stock['name']} ({stock['confidence']})")
+        else:
+            print("❌ AI未能提取到有效的股票信息")
         
-        # 分析股票建议
-        def extract_recommendation(content, symbol):
-            content_lower = content.lower()
-            if any(word in content_lower for word in ['买入', '增仓', '看多', 'buy', 'bullish']):
-                return '建议买入'
-            elif any(word in content_lower for word in ['卖出', '减仓', '看空', 'sell', 'bearish']):
-                return '建议卖出'
-            elif any(word in content_lower for word in ['持有', 'hold']):
-                return '建议持有'
-            else:
-                return '无明确建议'
-        
-        # 处理发现的股票
-        unique_stocks = list(set(potential_stocks))
-        for symbol in unique_stocks:
-            if symbol in known_stocks:
-                extracted_stocks.append({
-                    'symbol': symbol,
-                    'name': known_stocks[symbol]['name'],
-                    'confidence': known_stocks[symbol]['confidence'],
-                    'recommendation': extract_recommendation(combined_content, symbol)
-                })
-        
-        # 如果没有找到股票，尝试从公司名称推断
-        if not extracted_stocks:
-            company_mappings = {
-                'apple': 'AAPL',
-                'google': 'GOOGL',
-                'alphabet': 'GOOGL',
-                'microsoft': 'MSFT',
-                'amazon': 'AMZN',
-                'tesla': 'TSLA',
-                'meta': 'META',
-                'facebook': 'META',
-                'nvidia': 'NVDA',
-                'netflix': 'NFLX'
-            }
-            
-            content_lower = combined_content.lower()
-            for company, symbol in company_mappings.items():
-                if company in content_lower and symbol not in [s['symbol'] for s in extracted_stocks]:
-                    extracted_stocks.append({
-                        'symbol': symbol,
-                        'name': known_stocks.get(symbol, {}).get('name', f'{symbol} Corporation'),
-                        'confidence': 'medium',
-                        'recommendation': extract_recommendation(combined_content, symbol)
-                    })
-        
-        return extracted_stocks[:5]  # 限制最多5只股票
+        return extracted_stocks
         
     except Exception as e:
-        print(f"股票提取失败: {e}")
+        print(f"❌ AI股票提取失败: {e}")
+        return []
+
+
+def analyze_stocks_with_ai(content):
+    """使用AI分析内容并提取股票信息"""
+    try:
+        from services.gemini_service import GeminiService
+        
+        gemini_service = GeminiService()
+        
+        # 构建AI分析提示词
+        prompt = f"""
+作为专业的金融分析师，请仔细分析以下投资报告内容，提取其中提到的所有美股股票信息。
+
+**分析内容：**
+{content}
+
+**请按照以下JSON格式返回结果，只返回JSON，不要添加任何其他文字：**
+
+{{
+    "stocks": [
+        {{
+            "symbol": "股票代码(如AAPL)",
+            "name": "公司全名(如Apple Inc.)",
+            "confidence": "提取置信度(high/medium/low)",
+            "recommendation": "投资建议(买入/卖出/持有/无明确建议)",
+            "context": "在报告中的相关描述(不超过100字)"
+        }}
+    ]
+}}
+
+**重要要求：**
+1. 只提取在美国交易所(NYSE, NASDAQ)交易的股票
+2. 股票代码必须是标准的1-5位大写字母格式
+3. confidence根据在报告中的重要程度设置：详细分析的为high，简单提及的为medium，模糊提及的为low
+4. recommendation根据报告的实际建议设置，如果没有明确建议就写"无明确建议"
+5. 如果没有找到任何股票，返回空的stocks数组
+6. 最多返回10只股票
+"""
+
+        # 调用AI服务
+        response = gemini_service.generate_text(prompt)
+        
+        if not response or not response.get('success') or not response.get('summary'):
+            print("❌ AI返回空响应")
+            return []
+        
+        response_text = response['summary'].strip()
+        print(f"🤖 AI原始响应: {response_text[:200]}...")
+        
+        # 提取JSON部分
+        json_start = response_text.find('{')
+        json_end = response_text.rfind('}') + 1
+        
+        if json_start == -1 or json_end == 0:
+            print("❌ AI响应中未找到JSON格式")
+            return []
+        
+        json_str = response_text[json_start:json_end]
+        
+        try:
+            result = json.loads(json_str)
+            stocks = result.get('stocks', [])
+            
+            # 验证和清理结果
+            valid_stocks = []
+            for stock in stocks:
+                if (stock.get('symbol') and stock.get('name') and 
+                    isinstance(stock.get('symbol'), str) and 
+                    stock['symbol'].isupper() and 
+                    len(stock['symbol']) <= 5):
+                    valid_stocks.append({
+                        'symbol': stock['symbol'],
+                        'name': stock['name'],
+                        'confidence': stock.get('confidence', 'medium'),
+                        'recommendation': stock.get('recommendation', '无明确建议')
+                    })
+            
+            return valid_stocks[:10]  # 最多返回10只股票
+            
+        except json.JSONDecodeError as e:
+            print(f"❌ JSON解析失败: {e}")
+            print(f"尝试解析的内容: {json_str}")
+            return []
+            
+    except Exception as e:
+        print(f"❌ AI分析异常: {e}")
         return []
 
 def generate_accuracy_analysis(extracted_stocks, stock_charts, cached_data):
