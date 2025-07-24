@@ -118,7 +118,8 @@ document.addEventListener('DOMContentLoaded', function() {
             video_url: formData.get('video_url'),
             analysis_type: formData.get('analysis_type'),
             start_date: formData.get('start_date'),
-            end_date: formData.get('end_date')
+            end_date: formData.get('end_date'),
+            report_language: formData.get('report_language') || 'en'
         };
         
         // 根据分析类型添加股票代码

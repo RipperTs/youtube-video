@@ -48,6 +48,7 @@ def analyze_stream():
     start_date = data.get('start_date')
     end_date = data.get('end_date')
     stock_symbol = data.get('stock_symbol', 'AAPL') if analysis_type == 'manual_stock' else None
+    report_language = data.get('report_language', 'en')
     
     def generate_analysis():
         try:
@@ -72,20 +73,20 @@ def analyze_stream():
                 yield f"data: {json.dumps({'type': 'status', 'message': '仅分析视频内容和投资逻辑', 'progress': 10})}\n\n"
                 
                 # 流式分析视频
-                for log_output in _analyze_content_only_stream(video_url, log_callback):
+                for log_output in _analyze_content_only_stream(video_url, log_callback, report_language):
                     yield log_output
                     
             elif analysis_type == 'stock_extraction':
                 yield f"data: {json.dumps({'type': 'status', 'message': '提取股票并分析数据', 'progress': 10})}\n\n"
                 
                 # 流式股票提取分析
-                for log_output in _analyze_stock_extraction_stream(video_url, start_date, end_date, log_callback):
+                for log_output in _analyze_stock_extraction_stream(video_url, start_date, end_date, log_callback, report_language):
                     yield log_output
                     
             else:  # manual_stock
                 yield f"data: {json.dumps({'type': 'status', 'message': '手动指定股票分析', 'progress': 10})}\n\n"
                 
-                for log_output in _analyze_manual_stock_stream(video_url, stock_symbol, start_date, end_date, log_callback):
+                for log_output in _analyze_manual_stock_stream(video_url, stock_symbol, start_date, end_date, log_callback, report_language):
                     yield log_output
             
         except Exception as e:
@@ -98,7 +99,7 @@ def analyze_stream():
     
     return Response(generate_analysis(), mimetype='text/plain')
 
-def _analyze_content_only_stream(video_url, log_callback):
+def _analyze_content_only_stream(video_url, log_callback, report_language='en'):
     """流式分析纯内容"""
     try:
         # 检查缓存
@@ -123,7 +124,7 @@ def _analyze_content_only_stream(video_url, log_callback):
         yield log_callback("开始分析视频内容...", "step")
         
         # 使用生成器处理分析（带日志）
-        analysis_generator = gemini_service.analyze_video_with_logging(video_url, log_callback=log_callback)
+        analysis_generator = gemini_service.analyze_video_with_logging(video_url, log_callback=log_callback, language=report_language)
         video_analysis = None
         
         for result in analysis_generator:
@@ -136,7 +137,7 @@ def _analyze_content_only_stream(video_url, log_callback):
         
         # 生成报告
         yield log_callback("生成内容分析报告...", "info")
-        report = report_service.generate_content_only_report(video_analysis)
+        report = report_service.generate_content_only_report(video_analysis, language=report_language)
         
         yield f"data: {json.dumps({'type': 'status', 'message': '分析完成!', 'progress': 100})}\n\n"
         
@@ -167,7 +168,7 @@ def _analyze_content_only_stream(video_url, log_callback):
     except Exception as e:
         yield log_callback(f"分析失败: {str(e)}", "error")
 
-def _analyze_stock_extraction_stream(video_url, start_date, end_date, log_callback):
+def _analyze_stock_extraction_stream(video_url, start_date, end_date, log_callback, report_language='en'):
     """流式股票提取分析"""
     try:
         # 检查缓存
@@ -216,7 +217,7 @@ def _analyze_stock_extraction_stream(video_url, start_date, end_date, log_callba
         # 分析视频内容
         yield log_callback("分析视频内容...", "step")
         
-        analysis_generator = gemini_service.analyze_video_with_logging(video_url, log_callback=log_callback)
+        analysis_generator = gemini_service.analyze_video_with_logging(video_url, log_callback=log_callback, language=report_language)
         video_analysis = None
         
         for result in analysis_generator:
@@ -280,7 +281,7 @@ def _analyze_stock_extraction_stream(video_url, start_date, end_date, log_callba
     except Exception as e:
         yield log_callback(f"分析失败: {str(e)}", "error")
 
-def _analyze_manual_stock_stream(video_url, stock_symbol, start_date, end_date, log_callback):
+def _analyze_manual_stock_stream(video_url, stock_symbol, start_date, end_date, log_callback, report_language='en'):
     """流式手动股票分析"""
     try:
         # 检查缓存（结合视频URL和股票代码）
@@ -305,7 +306,7 @@ def _analyze_manual_stock_stream(video_url, stock_symbol, start_date, end_date, 
         # 分析视频
         yield f"data: {json.dumps({'type': 'status', 'message': '分析视频内容...', 'progress': 30})}\n\n"
         
-        analysis_generator = gemini_service.analyze_video_with_logging(video_url, log_callback=log_callback)
+        analysis_generator = gemini_service.analyze_video_with_logging(video_url, log_callback=log_callback, language=report_language)
         video_analysis = None
         
         for result in analysis_generator:
@@ -474,6 +475,7 @@ def batch_analyze_selected():
             }), 400
         
         selected_videos = data.get('selected_videos', [])
+        report_language = data.get('report_language', 'en')
         
         if not selected_videos:
             return jsonify({
@@ -503,7 +505,7 @@ def batch_analyze_selected():
             return jsonify(cached_result)
         
         # 使用Gemini批量分析视频
-        batch_analysis_generator = gemini_service.analyze_batch_videos(video_urls)
+        batch_analysis_generator = gemini_service.analyze_batch_videos(video_urls, language=report_language)
         batch_analysis = None
         
         for result in batch_analysis_generator:
@@ -1012,6 +1014,8 @@ def analyze_channel_first_video():
             }), 400
         
         channel_name = data.get('channel_name')
+        report_language = data.get('report_language', 'en')
+        
         if not channel_name:
             return jsonify({
                 'success': False,
@@ -1050,7 +1054,7 @@ def analyze_channel_first_video():
             })
         
         # 进行视频分析（仅内容分析）
-        analysis_generator = gemini_service.analyze_video_with_logging(video_url)
+        analysis_generator = gemini_service.analyze_video_with_logging(video_url, language=report_language)
         video_analysis = None
         
         for result in analysis_generator:
@@ -1065,7 +1069,7 @@ def analyze_channel_first_video():
             }), 500
         
         # 生成报告
-        report = report_service.generate_content_only_report(video_analysis)
+        report = report_service.generate_content_only_report(video_analysis, language=report_language)
         
         # 构建分析结果
         result = {

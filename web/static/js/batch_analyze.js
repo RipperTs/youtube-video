@@ -269,7 +269,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    selected_videos: selectedVideos
+                    selected_videos: selectedVideos,
+                    report_language: document.getElementById('reportLanguage').value || 'en'
                 })
             });
             

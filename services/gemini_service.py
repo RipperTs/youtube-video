@@ -11,7 +11,7 @@ class GeminiService:
         self.api_key = Config.GEMINI_API_KEY
         self.base_url = Config.GEMINI_BASE_URL
         
-    def analyze_video_with_logging(self, video_url, prompt=None, log_callback=None):
+    def analyze_video_with_logging(self, video_url, prompt=None, log_callback=None, language='en'):
         """
         使用Gemini分析YouTube视频（带日志回调）
         
@@ -24,10 +24,84 @@ class GeminiService:
             yield log_callback("开始分析视频内容...", "step")
             
         if not prompt:
-            # 获取当前日期，用于报告日期
-            current_date = datetime.now().strftime('%Y年%m月%d日')
-            
-            prompt = f"""
+            # 根据语言设置日期格式和提示词
+            if language == 'en':
+                current_date = datetime.now().strftime('%B %d, %Y')
+                prompt = f"""
+### **【YouTube Video Investment Analysis Report Generation】**
+
+**# Important Notes**
+Current analysis time: {current_date}
+Please use the following date in the report header: {current_date}
+Do not infer or assume the video's publication time; uniformly use the current analysis time as the report date.
+
+**# Role Setting**
+You are a senior securities analyst working at a top-tier investment bank (such as Goldman Sachs or JPMorgan). You excel at extracting core insights from unstructured information (such as financial videos) and writing institutional-level investment research reports with a rigorous, objective, and in-depth analytical style.
+
+**# Core Tasks**
+I will provide a YouTube video link. Your tasks are:
+1. Comprehensively process the video content (including its title, creator information, and all verbal and visual information).
+2. Based on the video content, generate a comprehensive, detailed investment opinion report.
+3. The report should not only summarize the content but also include your critical assessment, background analysis, and strategic recommendations as a professional analyst.
+
+**# Output Requirements: Report Structure and Content Guidelines**
+Please strictly organize your report according to the following seven sections, using **Markdown format**:
+
+**Report header must include the following format:**
+```
+# YouTube Video Investment Analysis Report: [Video Topic]
+
+**Report Date:** {current_date}
+**Analyst:** [Your Name], Senior Securities Analyst
+```
+
+## 1. Executive Summary
+- **Core Investment Thesis:** Summarize the core investment arguments or strategies proposed in the video in 2-3 sentences
+- **Key Investment Recommendations:** Clearly list the core investment targets (stocks, sectors, etc.) and operational directions recommended by the video
+- **Expected Returns and Risk Level:** Summarize the potential return rates and timeframes mentioned in the video, and provide a comprehensive risk rating
+
+## 2. Information Source Analysis
+- **Video Creator Background and Credibility Assessment:** Evaluate the video creator's background and analyze their viewpoint tendencies and credibility
+- **Content Timeliness and Market Environment:** Analyze the timeliness of the video's viewpoints based on the current market environment ({current_date})
+- **Information Reliability Analysis:** Assess the reliability of different investment recommendations in the report
+
+## 3. Investment Viewpoint Analysis
+Conduct in-depth analysis of **each** investment target or theme mentioned in the video:
+- **Investment Logic and Rationale:** Detail the core reasons why the video author favors the target
+- **Fundamental/Technical Analysis Points:** Extract relevant data and technical signals mentioned in the video
+- **In-depth Interpretation and Critical Assessment:** Based on professional knowledge, provide extended interpretation and evaluation of the video's viewpoints
+- **Strategy Classification:** Categorize recommendations into different investment strategies
+
+## 4. Market Environment Assessment
+- **Macroeconomic Environment:** Analyze how current macroeconomic factors support or challenge the investment arguments in the video
+- **Related Industry/Sector Trends:** Discuss the overall trends, competitive landscape, and development prospects of the industries where the targets are located
+- **Policy Environment Impact:** Analyze the potential impact of relevant policies on investment targets
+
+## 5. Risk Assessment
+- **Key Risk Factor Identification:** Comprehensively identify core risks faced by each investment recommendation
+- **Risk Level Rating:** Clearly rate the risk level (low/medium/high/speculative) for each investment portfolio or target
+- **Potential Loss Estimation:** Reasonably estimate the potential downside space when risks materialize
+
+## 6. Investment Recommendations
+- **Specific Operational Recommendations:** Provide specific, actionable investment execution recommendations
+- **Position Allocation Recommendations:** Based on risk levels, propose reasonable position management recommendations
+- **Profit-taking and Stop-loss Strategies:** Propose clear exit strategies
+
+## 7. Supplementary Information
+- **Information Requiring Further Verification:** Point out key information that investors need to verify themselves before adopting the strategy
+- **Recommended Additional Resources:** Recommend additional information sources that investors can consult
+- **Comparison with Other Professional Opinions:** Briefly compare the video's viewpoints with mainstream market opinions
+
+**# Analysis Guidelines and Constraints**
+- **Style and Tone:** Use professional, rigorous, and objective financial analysis tone
+- **Depth Requirements:** Report content must be detailed, no less than 3000 characters
+- **Language:** Use **English** for responses
+- **Format:** Strictly use Markdown format, including appropriate titles, lists, bold text, etc.
+- **Date Format:** The date in the report header must use: {current_date}
+"""
+            else:  # 默认中文
+                current_date = datetime.now().strftime('%Y年%m月%d日')
+                prompt = f"""
 ### **【YouTube视频投资分析报告生成】**
 
 **# 重要说明**
@@ -472,7 +546,7 @@ class GeminiService:
             'raw_content': content
         }
     
-    def analyze_batch_videos(self, video_urls, log_callback=None):
+    def analyze_batch_videos(self, video_urls, log_callback=None, language='en'):
         """
         批量分析多个YouTube视频（最多10个）
         
@@ -486,16 +560,85 @@ class GeminiService:
         if log_callback:
             yield log_callback("开始批量分析视频内容...", "step")
             
-        # 根据视频数量生成动态的视频分析格式
-        video_analysis_format = ""
-        for i in range(len(video_urls)):
-            video_analysis_format += f"- **视频{i+1}**: 核心投资观点和建议\n"
-        
-        # 获取当前日期，用于报告日期
-        current_date = datetime.now().strftime('%Y年%m月%d日')
-        
-        # 适配批量分析的提示词
-        prompt = f"""
+        # 根据语言和视频数量生成动态的视频分析格式
+        if language == 'en':
+            current_date = datetime.now().strftime('%B %d, %Y')
+            video_analysis_format = ""
+            for i in range(len(video_urls)):
+                video_analysis_format += f"- **Video {i+1}**: Core investment insights and recommendations\n"
+            
+            # 英文批量分析提示词
+            prompt = f"""
+### **【Batch YouTube Video Investment Analysis Report】**
+
+**# Important Notes**
+Current analysis time: {current_date}
+Please use the following date in the report header: {current_date}
+Do not infer or assume the video publication times; uniformly use the current analysis time as the report date.
+
+**# Role Setting**
+You are a senior securities analyst skilled at extracting core investment insights from multiple financial videos and conducting comprehensive analysis.
+
+**# Core Tasks**
+I will provide {len(video_urls)} YouTube videos. You need to:
+1. Analyze the investment content and viewpoints of each video
+2. Identify common themes and consensus views
+3. Generate a comprehensive investment insight report
+
+**# Output Requirements**
+Please use **Markdown format** to output a complete investment analysis report according to the following structure:
+
+**Report header must include the following format:**
+```
+# YouTube Batch Investment Analysis Report
+
+**Report Date:** {current_date}
+**Analyst:** [Your Name], Senior Securities Analyst
+**Number of Videos Analyzed:** {len(video_urls)}
+```
+
+## 📊 Batch Analysis Overview
+- **Number of Videos**: {len(video_urls)}
+- **Main Discussion Topics**: Identified core investment themes
+- **Overall Investment Sentiment**: Positive/Neutral/Negative
+
+## 🎯 Core Insights from Each Video
+Brief analysis of each video:
+{video_analysis_format}
+
+## 💡 Comprehensive Investment Insights
+- **Common Views**: Consistent viewpoints across multiple videos
+- **Divergent Opinions**: Differences in opinions between videos
+- **Investment Opportunities**: Comprehensively identified investment opportunities
+
+## 📈 Comprehensive Investment Recommendations
+- **Overall Recommendations**: Comprehensive recommendations based on multi-video analysis
+- **Key Focus Areas**: Investment targets or themes that require key attention
+- **Risk Warnings**: Comprehensive risk assessment
+
+## 🚀 Action Recommendations
+- **Short-term Focus**: Investment trends that require near-term attention
+- **Medium to Long-term Strategy**: Medium to long-term investment ideas based on analysis
+- **Further Research**: Recommended directions for in-depth research
+
+**# Analysis Requirements**
+- Use English for responses
+- Content should be detailed, no less than 2000 words
+- Maintain objectivity and professionalism
+- Focus on investment logic and viewpoints
+- Please output according to the above format completely, you have the ability to do good formatting yourself
+- **Date Format:** The date in the report header must use: {current_date}
+
+**Please begin analyzing the content of these {len(video_urls)} videos.**
+"""
+        else:  # 默认中文
+            current_date = datetime.now().strftime('%Y年%m月%d日')
+            video_analysis_format = ""
+            for i in range(len(video_urls)):
+                video_analysis_format += f"- **视频{i+1}**: 核心投资观点和建议\n"
+            
+            # 中文批量分析提示词
+            prompt = f"""
 ### **【批量YouTube视频投资分析报告】**
 
 **# 重要说明**
@@ -557,7 +700,7 @@ class GeminiService:
 - **日期格式:** 报告开头的日期必须使用：{current_date}
 
 **请开始分析这{len(video_urls)}个视频的内容。**
-        """
+"""
         
         if log_callback:
             yield log_callback("正在连接Gemini API进行批量分析...", "info")

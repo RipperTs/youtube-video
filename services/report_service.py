@@ -5,12 +5,17 @@ import tempfile
 import markdown
 from weasyprint import HTML, CSS
 from weasyprint.text.fonts import FontConfiguration
+import warnings
+# 抑制WeasyPrint的字体警告
+warnings.filterwarnings('ignore', category=UserWarning, module='weasyprint')
 
 class ReportService:
     """投资报告生成服务"""
     
     def __init__(self):
-        self.font_config = FontConfiguration()
+        # 禁用字体配置以避免字体度量问题
+        self.font_config = None
+        print("ReportService初始化: 禁用字体配置以避免度量问题")
     
     def generate_pdf_report(self, cache_key, cached_data, video_urls):
         """
@@ -36,14 +41,73 @@ class ReportService:
             html_content = self._generate_html_content(cached_data, video_urls)
             
             # 生成CSS样式
-            css_content = self._get_pdf_styles()
+            css_content = self._get_safe_pdf_styles()
             
-            # 使用WeasyPrint生成PDF
+            # 使用WeasyPrint生成PDF，多层级错误处理
             html_doc = HTML(string=html_content)
-            css_doc = CSS(string=css_content, font_config=self.font_config)
             
-            html_doc.write_pdf(pdf_file, stylesheets=[css_doc], font_config=self.font_config)
+            # 直接使用最安全的方法生成PDF
+            print("开始PDF生成 - 使用最安全的方法")
             
+            try:
+                # 使用极简HTML和无样式方法
+                simple_html = self._generate_simple_html_content(cached_data, video_urls)
+                simple_html_doc = HTML(string=simple_html)
+                
+                # 设置环境变量避免字体问题
+                old_env = {}
+                env_vars_to_set = {
+                    'FONTCONFIG_PATH': '/dev/null',
+                    'FC_DEBUG': '0'
+                }
+                
+                for key, value in env_vars_to_set.items():
+                    old_env[key] = os.environ.get(key, None)
+                    os.environ[key] = value
+                
+                # 生成PDF，使用最基本的选项
+                simple_html_doc.write_pdf(
+                    pdf_file,
+                    stylesheets=[],
+                    presentational_hints=False,
+                    optimize_images=False
+                )
+                
+                # 恢复环境变量
+                for key, old_value in old_env.items():
+                    if old_value is not None:
+                        os.environ[key] = old_value
+                    else:
+                        os.environ.pop(key, None)
+                
+                print("PDF生成成功 - 使用极简方法")
+                
+            except Exception as simple_error:
+                print(f"极简方法也失败: {simple_error}")
+                # 恢复环境变量
+                for key, old_value in old_env.items():
+                    if old_value is not None:
+                        os.environ[key] = old_value
+                    else:
+                        os.environ.pop(key, None)
+                
+                # 最后尝试：使用临时文件方法
+                try:
+                    import tempfile
+                    with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False) as tmp_file:
+                        tmp_file.write(simple_html)
+                        tmp_file.flush()
+                        
+                        file_html_doc = HTML(filename=tmp_file.name)
+                        file_html_doc.write_pdf(pdf_file)
+                        
+                    os.unlink(tmp_file.name)
+                    print("PDF生成成功 - 使用临时文件方法")
+                    
+                except Exception as file_error:
+                    print(f"临时文件方法也失败: {file_error}")
+                    raise Exception(f"PDF生成完全失败: 极简方法错误={simple_error}, 文件方法错误={file_error}")
+                
             return pdf_file
             
         except Exception as e:
@@ -221,7 +285,7 @@ class ReportService:
         }
         return type_names.get(analysis_type, '未知类型')
     
-    def _get_pdf_styles(self):
+    def _get_safe_pdf_styles(self):
         """获取PDF样式"""
         return """
         @page {
@@ -240,7 +304,7 @@ class ReportService:
         }
         
         body {
-            font-family: "SimHei", "Microsoft YaHei", "Arial", sans-serif;
+            font-family: "Arial", "DejaVu Sans", "Liberation Sans", sans-serif;
             font-size: 12px;
             line-height: 1.6;
             color: #333;
@@ -409,6 +473,112 @@ class ReportService:
         }
         """
     
+    def _get_minimal_pdf_styles(self):
+        """获取最简PDF样式，完全避免字体问题"""
+        return """
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+        
+        * {
+            font-family: serif !important;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-size: 12px;
+            line-height: 1.4;
+            color: black;
+            margin: 0;
+            padding: 0;
+        }
+        
+        h1, h2, h3, h4, h5, h6 {
+            color: black;
+            margin: 10px 0 5px 0;
+            font-weight: bold;
+        }
+        
+        h1 { font-size: 18px; }
+        h2 { font-size: 16px; }
+        h3 { font-size: 14px; }
+        
+        p {
+            margin: 5px 0;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid black;
+            padding-bottom: 10px;
+        }
+        
+        a {
+            color: black;
+            word-break: break-all;
+        }
+        
+        ul, ol {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        
+        li {
+            margin: 2px 0;
+        }
+        """
+    
+    def _generate_simple_html_content(self, cached_data, video_urls):
+        """生成极简HTML内容，避免任何可能导致字体问题的元素"""
+        if isinstance(video_urls, str):
+            video_urls = [video_urls]
+        
+        report = cached_data.get('report', {})
+        
+        # 极简HTML，只包含基本文本
+        html = """<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>YouTube Analysis Report</title>
+</head>
+<body>
+<h1>YouTube Investment Analysis Report</h1>
+"""
+        
+        # 添加基本信息
+        html += f"<p>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>\n"
+        html += f"<p>Videos analyzed: {len(video_urls)}</p>\n"
+        
+        # 添加视频链接
+        html += "<h2>Analyzed Videos</h2>\n"
+        for i, url in enumerate(video_urls, 1):
+            html += f"<p>{i}. {url}</p>\n"
+        
+        # 添加报告内容
+        if report.get('raw_markdown_content'):
+            html += "<h2>Analysis Report</h2>\n"
+            # 简单的markdown到HTML转换，避免复杂处理
+            content = report['raw_markdown_content']
+            # 替换基本markdown语法
+            content = content.replace('**', '').replace('*', '')
+            content = content.replace('#', '')
+            # 按段落分割
+            paragraphs = content.split('\n\n')
+            for para in paragraphs:
+                if para.strip():
+                    html += f"<p>{para.strip()}</p>\n"
+        
+        html += """
+<h2>Disclaimer</h2>
+<p>This report is for reference only and does not constitute investment advice.</p>
+</body>
+</html>"""
+        
+        return html
+    
     def generate_report(self, video_analysis, stock_data):
         """
         生成单个视频的投资分析报告
@@ -431,19 +601,27 @@ class ReportService:
         
         return report
     
-    def generate_content_only_report(self, video_analysis):
+    def generate_content_only_report(self, video_analysis, language='en'):
         """
         生成纯内容分析报告（直接使用AI返回的Markdown内容）
         
         Args:
             video_analysis: 视频分析结果，包含AI的原始Markdown内容
+            language: 报告语言 ('en' 或 'zh')
         """
         # 直接使用AI返回的原始内容作为报告
         raw_content = video_analysis.get('raw_content', video_analysis.get('summary', ''))
         
+        if language == 'en':
+            title = 'Video Content Investment Analysis Report'
+            generated_at = datetime.now().strftime('%B %d, %Y %H:%M:%S')
+        else:  # 默认中文
+            title = '视频内容投资逻辑分析报告'
+            generated_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        
         report = {
-            'title': '视频内容投资逻辑分析报告',
-            'generated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'title': title,
+            'generated_at': generated_at,
             'raw_markdown_content': raw_content,  # AI的原始Markdown内容
             'disclaimer': self._get_disclaimer()
         }
