@@ -1,7 +1,6 @@
 from datetime import datetime
 import json
 import os
-import tempfile
 import markdown
 from weasyprint import HTML, CSS
 
@@ -39,36 +38,20 @@ class ReportService:
             # 生成CSS样式
             css_content = self._get_pdf_styles()
 
-            # 直接使用最简单的方法生成PDF，避免字体问题
+            # 按优先级尝试不同的PDF生成方式
             try:
-                # 先尝试带样式的生成
+                # 方法1: 先尝试带样式的生成
                 html_doc = HTML(string=html_content)
                 css_doc = CSS(string=css_content)
                 html_doc.write_pdf(pdf_file, stylesheets=[css_doc])
+                print("成功生成带样式的PDF")
             except Exception as style_error:
-                print(f"样式PDF生成失败，使用无样式方案: {style_error}")
-                try:
-                    # 使用简化HTML内容，完全避免复杂样式
-                    simple_html = self._generate_simple_html_content(cached_data, video_urls)
-                    html_doc = HTML(string=simple_html)
-                    html_doc.write_pdf(pdf_file)
-                except Exception as simple_error:
-                    print(f"简化PDF生成也失败: {simple_error}")
-                    # 最后的保险方案：纯文本转PDF
-                    text_html = f"""
-                    <!DOCTYPE html>
-                    <html>
-                    <head><meta charset="UTF-8"><title>Report</title></head>
-                    <body style="font-family: serif; font-size: 12px; margin: 20px;">
-                    <h1>YouTube Investment Analysis Report</h1>
-                    <p>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-                    <h2>Analysis Content</h2>
-                    <pre>{str(cached_data.get('report', {}).get('raw_markdown_content', 'No content available'))}</pre>
-                    </body>
-                    </html>
-                    """
-                    html_doc = HTML(string=text_html)
-                    html_doc.write_pdf(pdf_file)
+                print(f"样式PDF生成失败，使用纯文本方案: {style_error}")
+                # 方法2: 直接使用纯文本PDF
+                text_html = self._generate_text_pdf_content(cached_data, video_urls)
+                html_doc = HTML(string=text_html)
+                html_doc.write_pdf(pdf_file)
+                print("成功生成纯文本PDF")
 
             return pdf_file
 
@@ -266,6 +249,101 @@ class ReportService:
     <p>{self._get_disclaimer()}</p>
 </body>
 </html>"""
+        
+        return html
+
+    def _generate_text_pdf_content(self, cached_data, video_urls):
+        """生成纯文本PDF内容"""
+        if isinstance(video_urls, str):
+            video_urls = [video_urls]
+
+        report = cached_data.get('report', {})
+        
+        html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>YouTube Investment Analysis Report</title>
+    <style>
+        body {{ 
+            font-family: serif; 
+            font-size: 12px; 
+            line-height: 1.5; 
+            margin: 30px;
+            color: #333;
+        }}
+        .header {{ 
+            text-align: center; 
+            margin-bottom: 30px; 
+            padding-bottom: 15px;
+            border-bottom: 1px solid #ccc;
+        }}
+        .header h1 {{ 
+            font-size: 20px; 
+            margin-bottom: 10px;
+        }}
+        .section {{ 
+            margin: 20px 0; 
+        }}
+        .section h2 {{ 
+            font-size: 16px; 
+            margin-bottom: 10px;
+            color: #555;
+        }}
+        .video-list {{ 
+            background-color: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+        }}
+        .content {{ 
+            background-color: #fafafa;
+            padding: 15px;
+            margin: 10px 0;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 11px;
+        }}
+        .disclaimer {{
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 10px;
+            margin-top: 20px;
+            font-size: 10px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>YouTube Investment Analysis Report</h1>
+        <p>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+        <p>Videos Analyzed: {len(video_urls)}</p>
+    </div>
+    
+    <div class="section">
+        <h2>Analyzed Videos</h2>
+        <div class="video-list">"""
+
+        for i, url in enumerate(video_urls, 1):
+            html += f'<p>{i}. {url}</p>\n'
+
+        html += '</div></div>\n'
+
+        # 添加报告内容
+        if report.get('raw_markdown_content'):
+            content = report['raw_markdown_content']
+            html += f'''
+            <div class="section">
+                <h2>Analysis Report</h2>
+                <div class="content">{content}</div>
+            </div>'''
+
+        html += f'''
+    <div class="disclaimer">
+        <h2>Disclaimer</h2>
+        <p>{self._get_disclaimer()}</p>
+    </div>
+</body>
+</html>'''
         
         return html
 
