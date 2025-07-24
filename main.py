@@ -1106,5 +1106,50 @@ def analyze_channel_first_video():
             'error': f'分析失败: {str(e)}'
         }), 500
 
+@app.route('/api/clear-cache/<cache_key>', methods=['DELETE'])
+def clear_cache(cache_key):
+    """清理指定cache_key的缓存文件"""
+    try:
+        # 定义各种缓存文件路径
+        analysis_cache_file = os.path.join('cache', 'analysis', f'{cache_key}.json')
+        pdf_cache_file = os.path.join('cache', 'pdf', f'{cache_key}.pdf')
+        download_cache_file = os.path.join('cache', 'download', f'{cache_key}.md')
+        
+        # 记录删除的文件
+        deleted_files = []
+        
+        # 删除分析缓存文件
+        if os.path.exists(analysis_cache_file):
+            os.remove(analysis_cache_file)
+            deleted_files.append('分析缓存')
+        
+        # 删除PDF文件
+        if os.path.exists(pdf_cache_file):
+            os.remove(pdf_cache_file)
+            deleted_files.append('PDF报告')
+        
+        # 删除下载缓存文件
+        if os.path.exists(download_cache_file):
+            os.remove(download_cache_file)
+            deleted_files.append('下载缓存')
+        
+        if deleted_files:
+            return jsonify({
+                'success': True,
+                'message': f'成功清理: {", ".join(deleted_files)}',
+                'deleted_files': deleted_files
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': '未找到相关缓存文件'
+            }), 404
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'清理缓存失败: {str(e)}'
+        }), 500
+
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=15000)

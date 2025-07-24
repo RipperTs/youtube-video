@@ -1090,6 +1090,23 @@ function showPdfDownloadButton() {
         return;
     }
     
+    // 查找或创建按钮容器
+    let buttonContainer = document.getElementById('downloadButtonContainer');
+    if (!buttonContainer) {
+        buttonContainer = document.createElement('div');
+        buttonContainer.id = 'downloadButtonContainer';
+        buttonContainer.style.marginBottom = '20px';
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.gap = '10px';
+        buttonContainer.style.alignItems = 'center';
+        
+        // 插入到结果区域的开头
+        const resultsSection = document.getElementById('analysisResults');
+        if (resultsSection) {
+            resultsSection.insertBefore(buttonContainer, resultsSection.firstChild);
+        }
+    }
+    
     // 查找或创建PDF下载按钮
     let pdfButton = document.getElementById('pdfDownloadBtn');
     if (!pdfButton) {
@@ -1107,17 +1124,31 @@ function showPdfDownloadButton() {
         
         // 添加点击事件
         pdfButton.addEventListener('click', downloadPdfReport);
-        
-        // 插入到结果区域的开头
-        const resultsSection = document.getElementById('analysisResults');
-        if (resultsSection) {
-            resultsSection.insertBefore(pdfButton, resultsSection.firstChild);
-        }
+        buttonContainer.appendChild(pdfButton);
     }
     
-    // 显示按钮
-    pdfButton.style.display = 'inline-block';
-    pdfButton.style.marginBottom = '20px';
+    // 查找或创建清理缓存按钮
+    let clearCacheButton = document.getElementById('clearCacheBtn');
+    if (!clearCacheButton) {
+        clearCacheButton = document.createElement('button');
+        clearCacheButton.id = 'clearCacheBtn';
+        clearCacheButton.className = 'btn btn-outline-danger';
+        clearCacheButton.innerHTML = `
+            <i class="fas fa-trash-alt"></i>
+            <span class="btn-text">清理报告缓存文件</span>
+            <span class="loading-spinner" style="display: none;">
+                <i class="fas fa-spinner fa-spin"></i>
+                清理中...
+            </span>
+        `;
+        
+        // 添加点击事件
+        clearCacheButton.addEventListener('click', clearCacheFiles);
+        buttonContainer.appendChild(clearCacheButton);
+    }
+    
+    // 显示按钮容器
+    buttonContainer.style.display = 'flex';
 }
 
 function downloadPdfReport() {
@@ -1159,4 +1190,56 @@ function downloadPdfReport() {
             showNotification('PDF下载已开始', 'success');
         }
     }, 2000);
+}
+
+function clearCacheFiles() {
+    if (!window.currentCacheKey) {
+        alert('没有找到分析结果，无法清理缓存');
+        return;
+    }
+    
+    // 确认删除
+    if (!confirm('确定要清理此报告的所有缓存文件吗？清理后将无法再次下载PDF报告。')) {
+        return;
+    }
+    
+    const clearCacheButton = document.getElementById('clearCacheBtn');
+    
+    // 显示加载状态
+    clearCacheButton.disabled = true;
+    clearCacheButton.querySelector('.btn-text').style.display = 'none';
+    clearCacheButton.querySelector('.loading-spinner').style.display = 'inline-block';
+    
+    // 调用清理API
+    fetch(`/api/clear-cache/${window.currentCacheKey}`, {
+        method: 'DELETE'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`缓存清理成功：${data.message}`);
+            
+            // 清理成功后隐藏按钮容器
+            const buttonContainer = document.getElementById('downloadButtonContainer');
+            if (buttonContainer) {
+                buttonContainer.style.display = 'none';
+            }
+            
+            // 清除全局cache_key
+            window.currentCacheKey = null;
+            
+        } else {
+            alert(`缓存清理失败：${data.message || data.error}`);
+        }
+    })
+    .catch(error => {
+        console.error('清理缓存错误:', error);
+        alert('清理缓存失败，请检查网络连接');
+    })
+    .finally(() => {
+        // 恢复按钮状态
+        clearCacheButton.disabled = false;
+        clearCacheButton.querySelector('.btn-text').style.display = 'inline-block';
+        clearCacheButton.querySelector('.loading-spinner').style.display = 'none';
+    });
 }
