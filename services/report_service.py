@@ -4,14 +4,14 @@ import os
 import tempfile
 import markdown
 from weasyprint import HTML, CSS
-from weasyprint.text.fonts import FontConfiguration
 
 
 class ReportService:
     """投资报告生成服务"""
 
     def __init__(self):
-        self.font_config = FontConfiguration()
+        # 不使用FontConfiguration，避免字体问题
+        self.font_config = None
 
     def generate_pdf_report(self, cache_key, cached_data, video_urls):
         """
@@ -39,11 +39,36 @@ class ReportService:
             # 生成CSS样式
             css_content = self._get_pdf_styles()
 
-            # 使用WeasyPrint生成PDF
-            html_doc = HTML(string=html_content)
-            css_doc = CSS(string=css_content, font_config=self.font_config)
-
-            html_doc.write_pdf(pdf_file, stylesheets=[css_doc], font_config=self.font_config)
+            # 直接使用最简单的方法生成PDF，避免字体问题
+            try:
+                # 先尝试带样式的生成
+                html_doc = HTML(string=html_content)
+                css_doc = CSS(string=css_content)
+                html_doc.write_pdf(pdf_file, stylesheets=[css_doc])
+            except Exception as style_error:
+                print(f"样式PDF生成失败，使用无样式方案: {style_error}")
+                try:
+                    # 使用简化HTML内容，完全避免复杂样式
+                    simple_html = self._generate_simple_html_content(cached_data, video_urls)
+                    html_doc = HTML(string=simple_html)
+                    html_doc.write_pdf(pdf_file)
+                except Exception as simple_error:
+                    print(f"简化PDF生成也失败: {simple_error}")
+                    # 最后的保险方案：纯文本转PDF
+                    text_html = f"""
+                    <!DOCTYPE html>
+                    <html>
+                    <head><meta charset="UTF-8"><title>Report</title></head>
+                    <body style="font-family: serif; font-size: 12px; margin: 20px;">
+                    <h1>YouTube Investment Analysis Report</h1>
+                    <p>Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+                    <h2>Analysis Content</h2>
+                    <pre>{str(cached_data.get('report', {}).get('raw_markdown_content', 'No content available'))}</pre>
+                    </body>
+                    </html>
+                    """
+                    html_doc = HTML(string=text_html)
+                    html_doc.write_pdf(pdf_file)
 
             return pdf_file
 
@@ -187,6 +212,63 @@ class ReportService:
 
         return html
 
+    def _generate_simple_html_content(self, cached_data, video_urls):
+        """生成简化的HTML内容，避免复杂样式"""
+        if isinstance(video_urls, str):
+            video_urls = [video_urls]
+
+        report = cached_data.get('report', {})
+        
+        # 使用最基本的HTML结构
+        html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>YouTube Investment Analysis Report</title>
+    <style>
+        body {{ font-family: serif; font-size: 12px; margin: 20px; line-height: 1.4; }}
+        h1 {{ font-size: 18px; margin-bottom: 10px; }}
+        h2 {{ font-size: 16px; margin-top: 20px; margin-bottom: 8px; }}
+        h3 {{ font-size: 14px; margin-top: 15px; margin-bottom: 6px; }}
+        p {{ margin: 6px 0; }}
+        ul {{ margin: 8px 0; padding-left: 20px; }}
+        li {{ margin: 3px 0; }}
+        pre {{ background-color: #f5f5f5; padding: 8px; margin: 8px 0; }}
+    </style>
+</head>
+<body>
+    <h1>YouTube Investment Analysis Report</h1>
+    <p><strong>Generated:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
+    <p><strong>Videos analyzed:</strong> {len(video_urls)}</p>
+    
+    <h2>Analyzed Videos</h2>"""
+
+        for i, url in enumerate(video_urls, 1):
+            html += f'<p>{i}. {url}</p>\n'
+
+        # 添加报告内容
+        if report.get('raw_markdown_content'):
+            html += f'<h2>Analysis Report</h2>\n<pre>{report["raw_markdown_content"]}</pre>\n'
+        
+        # 添加其他结构化内容
+        if report.get('executive_summary'):
+            html += f'<h2>Executive Summary</h2>\n<p>{report["executive_summary"]}</p>\n'
+            
+        if report.get('investment_recommendation'):
+            rec = report['investment_recommendation']
+            html += f"""<h2>Investment Recommendation</h2>
+            <p><strong>Action:</strong> {rec.get('action', 'N/A')}</p>
+            <p><strong>Confidence:</strong> {rec.get('confidence_level', 'N/A')}</p>
+            <p><strong>Reasoning:</strong> {rec.get('reasoning', 'N/A')}</p>"""
+
+        html += f"""
+    <h2>Disclaimer</h2>
+    <p>{self._get_disclaimer()}</p>
+</body>
+</html>"""
+        
+        return html
+
     def _format_stock_data_html(self, stock):
         """格式化单个股票数据为HTML"""
         return f"""
@@ -241,7 +323,7 @@ class ReportService:
         }
 
         body {
-            font-family: "SimHei", "Microsoft YaHei", "Arial", sans-serif;
+            font-family: serif;
             font-size: 12px;
             line-height: 1.6;
             color: #333;
@@ -368,7 +450,7 @@ class ReportService:
             background-color: #f4f4f4;
             padding: 2px 4px;
             border-radius: 3px;
-            font-family: "Courier New", monospace;
+            font-family: monospace;
             font-size: 11px;
         }
 
@@ -376,7 +458,6 @@ class ReportService:
             background-color: #f4f4f4;
             padding: 10px;
             border-radius: 5px;
-            overflow-x: auto;
             font-size: 11px;
         }
 
@@ -407,6 +488,161 @@ class ReportService:
 
         .page-break {
             page-break-before: always;
+        }
+        """
+
+    def _get_fallback_pdf_styles(self):
+        """获取备用PDF样式（最简化设置）"""
+        return """
+        @page {
+            size: A4;
+            margin: 2cm;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
+            color: #000;
+            margin: 0;
+            padding: 0;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #000;
+        }
+
+        .header h1 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
+        .meta-info {
+            font-size: 10px;
+        }
+
+        .meta-info p {
+            margin: 3px 0;
+        }
+
+        h2 {
+            font-size: 16px;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 3px;
+        }
+
+        h3 {
+            font-size: 14px;
+            margin-top: 15px;
+            margin-bottom: 8px;
+        }
+
+        p {
+            margin: 6px 0;
+        }
+
+        ul {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+
+        li {
+            margin: 3px 0;
+        }
+
+        .video-links {
+            background-color: #f5f5f5;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+
+        .video-links a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+
+        .recommendation-box {
+            background-color: #e6f3ff;
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 3px solid #0066cc;
+        }
+
+        .recommendation-box h3 {
+            margin-top: 0;
+        }
+
+        .price-targets {
+            background-color: #e6ffe6;
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 3px solid #00cc00;
+        }
+
+        .stock-item {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin: 8px 0;
+        }
+
+        .disclaimer {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 10px;
+            margin-top: 20px;
+            font-size: 10px;
+        }
+
+        .disclaimer h2 {
+            font-size: 12px;
+            margin-top: 0;
+        }
+
+        strong {
+            font-weight: bold;
+        }
+
+        code {
+            background-color: #f0f0f0;
+            padding: 1px 3px;
+            font-family: monospace;
+            font-size: 10px;
+        }
+
+        pre {
+            background-color: #f0f0f0;
+            padding: 8px;
+            font-size: 10px;
+            font-family: monospace;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 5px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+
+        blockquote {
+            border-left: 3px solid #ccc;
+            margin: 10px 0;
+            padding-left: 10px;
+            font-style: italic;
         }
         """
 
