@@ -409,7 +409,7 @@ def batch_analyze():
                 raise Exception("批量分析失败")
             
             # 生成批量内容分析报告
-            report = report_service.generate_batch_content_report(batch_analysis)
+            report = report_service.generate_batch_content_report(batch_analysis, language=report_language)
             
             # 构建返回结果
             result = {
@@ -517,7 +517,7 @@ def batch_analyze_selected():
             raise Exception("批量分析失败")
         
         # 生成批量内容分析报告
-        report = report_service.generate_batch_content_report(batch_analysis)
+        report = report_service.generate_batch_content_report(batch_analysis, language=report_language)
         
         # 构建返回结果
         result = {

@@ -746,12 +746,13 @@ class ReportService:
 
         return report
 
-    def generate_content_only_report(self, video_analysis):
+    def generate_content_only_report(self, video_analysis, language='en'):
         """
         生成纯内容分析报告（直接使用AI返回的Markdown内容）
 
         Args:
             video_analysis: 视频分析结果，包含AI的原始Markdown内容
+            language: 报告语言，默认为中文
         """
         # 直接使用AI返回的原始内容作为报告
         raw_content = video_analysis.get('raw_content', video_analysis.get('summary', ''))
@@ -1305,12 +1306,13 @@ class ReportService:
             'average_performance': f"{sum([data.get('pct_change', 0) for data in stock_data_list]) / len(stock_data_list):+.2f}%"
         }
 
-    def generate_batch_content_report(self, batch_analysis):
+    def generate_batch_content_report(self, batch_analysis, language='en'):
         """
         生成批量内容分析报告（直接使用AI返回的Markdown内容）
 
         Args:
             batch_analysis: 批量分析结果，包含AI的原始Markdown内容
+            language: 报告语言，默认为英文
         """
         # 直接使用AI返回的原始内容作为报告
         raw_content = batch_analysis.get('raw_content', batch_analysis.get('summary', ''))
