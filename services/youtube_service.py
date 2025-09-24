@@ -108,8 +108,14 @@ class YouTubeService:
 
             data = response.json()
             # 获取视频数据
-            video_data = data.get('data', {}).get('responseContext', {}).get('videoDetails', {})
+            video_data = data.get('data', {}).get('videoDetails', {})
             return video_data
         except Exception as e:
             print(f"获取视频详情失败: {e}")
             return None
+
+
+if __name__ == '__main__':
+    yt_service = YouTubeService()
+    detail = yt_service.get_video_detail_by_url('https://www.youtube.com/watch?v=GUrtlwWzt5g')
+    print(detail)
