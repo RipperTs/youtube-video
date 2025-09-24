@@ -16,6 +16,7 @@ from typing import Optional
 
 from services.youtube_service import YouTubeService
 from utils import db as db_util
+import sqlite3
 
 
 class RecordService:
@@ -64,3 +65,41 @@ class RecordService:
             end_date=end_date,
             report_language=report_language,
         )
+
+    def list_records(self, limit: int = 50):
+        """按时间倒序列出记录。
+
+        Args:
+            limit: 返回数量上限
+
+        Returns:
+            list[dict]: 记录列表
+        """
+        conn: sqlite3.Connection = db_util.get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT id, video_title, video_url, channel_name, cache_key,
+                       analysis_type, start_date, end_date, report_language, created_at
+                FROM analysis_records
+                ORDER BY created_at DESC, id DESC
+                LIMIT ?
+                """,
+                (int(limit),),
+            )
+            rows = cur.fetchall()
+            return [dict(row) for row in rows]
+        finally:
+            conn.close()
+
+    def delete_by_cache_key(self, cache_key: str) -> int:
+        """根据 cache_key 删除记录，返回删除行数。"""
+        conn: sqlite3.Connection = db_util.get_connection()
+        try:
+            cur = conn.cursor()
+            cur.execute("DELETE FROM analysis_records WHERE cache_key = ?", (cache_key,))
+            conn.commit()
+            return cur.rowcount or 0
+        finally:
+            conn.close()

@@ -511,6 +511,23 @@ def get_channel_videos():
             'error': str(e)
         }), 500
 
+@app.route('/api/analysis-history')
+def analysis_history():
+    """查询分析历史（倒序）。支持参数：limit（默认50）。"""
+    try:
+        limit = request.args.get('limit', default=50, type=int)
+        records = record_service.list_records(limit=limit)
+        return jsonify({
+            'success': True,
+            'data': records,
+            'count': len(records)
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/batch-analyze-selected', methods=['POST'])
 def batch_analyze_selected():
     """批量分析选定的视频"""
@@ -1196,17 +1213,30 @@ def clear_cache(cache_key):
         if os.path.exists(download_cache_file):
             os.remove(download_cache_file)
             deleted_files.append('下载缓存')
+        # 同步删除数据库记录
+        deleted_db = 0
+        try:
+            deleted_db = record_service.delete_by_cache_key(cache_key)
+        except Exception as _:
+            pass
         
-        if deleted_files:
+        # 组装响应
+        if deleted_files or deleted_db:
+            details = []
+            if deleted_files:
+                details.append(f"文件: {', '.join(deleted_files)}")
+            if deleted_db:
+                details.append(f"数据库记录: {deleted_db} 条")
             return jsonify({
                 'success': True,
-                'message': f'成功清理: {", ".join(deleted_files)}',
-                'deleted_files': deleted_files
+                'message': f"成功清理 { '；'.join(details) }" if details else '已完成清理',
+                'deleted_files': deleted_files,
+                'deleted_db': deleted_db
             })
         else:
             return jsonify({
                 'success': False,
-                'message': '未找到相关缓存文件'
+                'message': '未找到相关缓存文件或数据库记录'
             }), 404
             
     except Exception as e:
