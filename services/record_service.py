@@ -27,21 +27,35 @@ class RecordService:
         self.youtube_service = YouTubeService()
 
     def add_record(
-            self,
-            *,
-            video_url: str,
-            channel_name: Optional[str] = None,
-            cache_key: Optional[str] = None,
-            analysis_type: Optional[str] = None,
-            start_date: Optional[str] = None,
-            end_date: Optional[str] = None,
-            report_language: Optional[str] = None,
+        self,
+        *,
+        video_url: str,
+        channel_name: Optional[str] = None,
+        cache_key: Optional[str] = None,
+        analysis_type: Optional[str] = None,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        report_language: Optional[str] = None,
+        video_title: Optional[str] = None,
     ) -> int:
-        video_detail = self.youtube_service.get_video_detail_by_url(video_url)
+        """新增一条分析记录，返回记录ID。
 
-        """新增一条分析记录，返回记录ID。"""
+        逻辑：
+        - 若提供了 video_title，直接使用
+        - 否则尝试通过 YouTubeService 获取；失败则置空
+        """
+        resolved_title: Optional[str] = video_title
+        if not resolved_title:
+            try:
+                if hasattr(self.youtube_service, "get_video_detail_by_url"):
+                    video_detail = self.youtube_service.get_video_detail_by_url(video_url)  # type: ignore[attr-defined]
+                    if isinstance(video_detail, dict):
+                        resolved_title = video_detail.get("title")
+            except Exception:
+                resolved_title = None
+
         return db_util.insert_record(
-            video_title=video_detail.get('title', 'Untitled'),
+            video_title=resolved_title,
             video_url=video_url,
             channel_name=channel_name,
             cache_key=cache_key,
