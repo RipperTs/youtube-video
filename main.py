@@ -4,6 +4,7 @@ from services.gemini_service import GeminiService
 from services.stock_service import StockService
 from services.report_service import ReportService
 from services.cache_service import CacheService
+from services.record_service import RecordService
 from services.chart_service import ChartService
 from config.settings import Config
 import os
@@ -24,6 +25,7 @@ stock_service = StockService()
 report_service = ReportService()
 cache_service = CacheService()
 chart_service = ChartService()
+record_service = RecordService()
 
 @app.route('/')
 def index():
@@ -73,7 +75,7 @@ def analyze_stream():
                 yield f"data: {json.dumps({'type': 'status', 'message': '仅分析视频内容和投资逻辑', 'progress': 10})}\n\n"
                 
                 # 流式分析视频
-                for log_output in _analyze_content_only_stream(video_url, log_callback, report_language):
+                for log_output in _analyze_content_only_stream(video_url, start_date, end_date, log_callback, report_language):
                     yield log_output
                     
             elif analysis_type == 'stock_extraction':
@@ -99,7 +101,7 @@ def analyze_stream():
     
     return Response(generate_analysis(), mimetype='text/plain')
 
-def _analyze_content_only_stream(video_url, log_callback, report_language='en'):
+def _analyze_content_only_stream(video_url,start_date, end_date,  log_callback, report_language='en'):
     """流式分析纯内容"""
     try:
         # 检查缓存
@@ -162,6 +164,21 @@ def _analyze_content_only_stream(video_url, log_callback, report_language='en'):
             'video_analysis': video_analysis
         }
         cache_service.save_download_report(cache_key, report, video_url, metadata)
+        
+        # 写入分析记录（单视频分析）
+        try:
+            record_service.add_record(
+                video_url=video_url,
+                channel_name=None,
+                cache_key=cache_key,
+                analysis_type='单视频分析',
+                start_date=start_date,
+                end_date=end_date,
+                report_language=report_language,
+            )
+        except Exception as _:
+            # 忽略记录失败，避免影响主流程
+            pass
         
         yield f"data: {json.dumps(result)}\n\n"
         
@@ -276,6 +293,20 @@ def _analyze_stock_extraction_stream(video_url, start_date, end_date, log_callba
         }
         cache_service.save_download_report(cache_key, report, video_url, metadata)
         
+        # 写入分析记录（单视频分析-股票提取）
+        try:
+            record_service.add_record(
+                video_url=video_url,
+                channel_name=None,
+                cache_key=cache_key,
+                analysis_type='单视频分析',
+                start_date=start_date,
+                end_date=end_date,
+                report_language=report_language,
+            )
+        except Exception as _:
+            pass
+
         yield f"data: {json.dumps(result)}\n\n"
         
     except Exception as e:
@@ -356,6 +387,20 @@ def _analyze_manual_stock_stream(video_url, stock_symbol, start_date, end_date, 
         }
         cache_service.save_download_report(cache_key, report, cache_urls, metadata)
         
+        # 写入分析记录（单视频分析）
+        try:
+            record_service.add_record(
+                video_url=video_url,
+                channel_name=None,
+                cache_key=cache_key,
+                analysis_type='单视频分析',
+                start_date=start_date,
+                end_date=end_date,
+                report_language=report_language,
+            )
+        except Exception as _:
+            pass
+        
         yield f"data: {json.dumps(result)}\n\n"
         
     except Exception as e:
@@ -375,6 +420,7 @@ def batch_analyze():
             
             channel_id = data.get('channel_id')
             video_count = min(data.get('video_count', 5), 10)  # 限制最多10个视频
+            report_language = data.get('report_language', 'en')
             
             # 获取频道视频
             channel_result = youtube_service.get_channel_videos(channel_id, video_count)
@@ -430,6 +476,8 @@ def batch_analyze():
                 'video_count': len(videos)
             }
             cache_service.save_download_report(cache_key, report, video_urls, metadata)
+            
+            # 批量分析不写入记录（按需保留缓存与报告）
             
             return jsonify(result)
             
@@ -541,6 +589,8 @@ def batch_analyze_selected():
         }
         cache_service.save_download_report(cache_key, report, video_urls, metadata)
         
+        # 批量分析（选定）不写入记录（按需保留缓存与报告）
+
         return jsonify(result)
         
     except Exception as e:
@@ -1091,6 +1141,20 @@ def analyze_channel_first_video():
         }
         cache_service.save_download_report(cache_key, report, video_url, metadata)
         
+        # 写入分析记录（单视频分析-频道首个视频）
+        try:
+            record_service.add_record(
+                video_url=video_url,
+                channel_name=channel_name,
+                cache_key=cache_key,
+                analysis_type='单视频分析',
+                start_date=None,
+                end_date=None,
+                report_language=report_language,
+            )
+        except Exception as _:
+            pass
+
         return jsonify({
             'success': True,
             'message': f'频道 {channel_name} 的第一个视频分析完成',

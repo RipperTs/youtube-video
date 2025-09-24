@@ -23,3 +23,6 @@ class Config:
     MAX_VIDEO_COUNT = 10  # 最大批量处理视频数
     MAX_VIDEO_DURATION = 8 * 60 * 60  # 8小时限制（秒）
     DEFAULT_STOCK_DAYS = 30  # 默认股票数据天数
+
+    # SQLite数据库配置
+    SQLITE_DB_PATH = os.environ.get('SQLITE_DB_PATH', os.path.join('cache', 'analysis_records.db'))

@@ -179,6 +179,15 @@ youtube-view/
 
 查看 `config/settings.py` 了解所有可配置的环境变量。
 
+### SQLite 分析记录
+
+- 系统使用内置 SQLite 保存分析记录，默认路径：`cache/analysis_records.db`
+- 可通过环境变量 `SQLITE_DB_PATH` 自定义路径（见 `.env.example`）
+- 表结构：`analysis_records`
+  - `video_title`、`video_url`、`channel_name`、`cache_key`
+  - `analysis_type`（单视频分析/批量分析）、`start_date`、`end_date`、`report_language`
+  - `created_at`（UTC，自动写入）
+
 ## 🔒 安全注意事项
 
 - 所有 API 密钥应存储在 `.env` 文件中，不要提交到版本控制
