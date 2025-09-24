@@ -53,7 +53,7 @@ class RecordService:
                     if isinstance(video_detail, dict):
                         resolved_title = video_detail.get("title")
             except Exception:
-                resolved_title = None
+                resolved_title = "Unknown video title"
 
         return db_util.insert_record(
             video_title=resolved_title,
