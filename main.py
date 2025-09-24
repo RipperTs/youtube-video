@@ -7,6 +7,7 @@ from services.cache_service import CacheService
 from services.record_service import RecordService
 from services.chart_service import ChartService
 from config.settings import Config
+from utils.time_utils import utc_str_to_bj
 import os
 import json
 import time
@@ -517,6 +518,10 @@ def analysis_history():
     try:
         limit = request.args.get('limit', default=50, type=int)
         records = record_service.list_records(limit=limit)
+        # 将UTC时间转换为北京时间
+        for rec in records:
+            if isinstance(rec, dict) and 'created_at' in rec:
+                rec['created_at'] = utc_str_to_bj(rec.get('created_at'))
         return jsonify({
             'success': True,
             'data': records,
